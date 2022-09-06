@@ -258,41 +258,78 @@ func (p *ProtocolAdapter) onRuntimeOnCompileScript(message []byte) []byte {
 	return nil
 }
 
-func (p *ProtocolAdapter) onRuntimeGetProperties(message []byte) []byte{
+func (p *ProtocolAdapter) onRuntimeGetProperties(message []byte) []byte {
 	var newPropertyDescriptors []interface{}
 	var err error
 	msg := string(message)
-	for _,node := range gjson.Get(msg,"result.result").Array(){
+	for _, node := range gjson.Get(msg, "result.result").Array() {
 		isOwn := node.Get("isOwn")
 		nativeGetter := node.Get("nativeGetter")
-		if isOwn.Exists() || nativeGetter.Exists(){
-			msg,err = sjson.Set(msg,isOwn.Path(string(message)),true)
-			if err!=nil {
+		if isOwn.Exists() || nativeGetter.Exists() {
+			msg, err = sjson.Set(msg, isOwn.Path(string(message)), true)
+			if err != nil {
 				log.Panic(err)
 			}
-			newPropertyDescriptors = append(newPropertyDescriptors,gjson.Get(msg,node.Path(msg)).Value())
+			newPropertyDescriptors = append(newPropertyDescriptors, gjson.Get(msg, node.Path(msg)).Value())
 		}
 	}
-	msg,err = sjson.Set(msg,"result.result",newPropertyDescriptors)
-	if err!=nil {
+	msg, err = sjson.Set(msg, "result.result", newPropertyDescriptors)
+	if err != nil {
 		log.Panic(err)
 	}
 	return []byte(msg)
 }
 
-func (p *ProtocolAdapter) onScriptParsed(message []byte) []byte{
-	p.lastScriptEval = gjson.Get(string(message),"params.scriptId")
+func (p *ProtocolAdapter) onScriptParsed(message []byte) []byte {
+	p.lastScriptEval = gjson.Get(string(message), "params.scriptId")
 	return message
 }
 
-func (p *ProtocolAdapter) onDomEnable(message []byte) []byte{
-	p.adapter.FireResultToTools(int(gjson.Get(string(message),"id").Int()), map[string]interface{}{})
+func (p *ProtocolAdapter) onDomEnable(message []byte) []byte {
+	p.adapter.FireResultToTools(int(gjson.Get(string(message), "id").Int()), map[string]interface{}{})
 	return nil
 }
 
-//func (p *ProtocolAdapter) onSetInspectMode(message []byte) []byte{
-//
-//}
+func (p *ProtocolAdapter) onSetInspectMode(message []byte) []byte {
+	msg := string(message)
+	var err error
+	msg, err = sjson.Set(msg, "method", "DOM.setInspectModeEnabled")
+	if err != nil {
+		log.Panic(err)
+	}
+	msg, err = sjson.Set(msg, "params.enabled",
+		gjson.Get(msg, "params.mode").String() == "searchForNode")
+	if err != nil {
+		log.Panic(err)
+	}
+	msg, err = sjson.Delete(msg, "params.mode")
+	if err != nil {
+		log.Panic(err)
+	}
+	return []byte(msg)
+}
+
+func (p *ProtocolAdapter) onInspect(message []byte) []byte {
+	msg := string(message)
+	var err error
+	msg, err = sjson.Set(msg, "method", "DOM.inspectNodeRequested")
+	if err != nil {
+		log.Panic(err)
+	}
+	msg, err = sjson.Set(msg, "params.backendNodeId", gjson.Get(msg, "params.object.objectId").Value())
+	if err != nil {
+		log.Panic(err)
+	}
+	msg, err = sjson.Delete(msg, "params.object")
+	if err != nil {
+		log.Panic(err)
+	}
+	msg, err = sjson.Delete(msg, "params.hints")
+	if err != nil {
+		log.Panic(err)
+	}
+	return []byte(msg)
+}
 
 func (p *ProtocolAdapter) onAddRule(message []byte) []byte {
 	var selector = gjson.Get(string(message), "params.ruleText").String()
