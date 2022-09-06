@@ -165,6 +165,37 @@ func (p *ProtocolAdapter) onGetMatchedStylesForNodeResult(message []byte) []byte
 	return []byte(msg)
 }
 
+func (p *ProtocolAdapter) onExecutionContextCreated(message []byte) []byte {
+	msg := string(message)
+	var err error
+	if gjson.Get(msg, "params").Exists() && gjson.Get(msg, "params.context").Exists() {
+		if !gjson.Get(msg, "params.context.origin").Exists() {
+			msg, err = sjson.Set(msg, "params.context.origin", gjson.Get(msg, "params.context.name").String())
+			if err != nil {
+				log.Panic(err)
+			}
+			if gjson.Get(msg, "params.context.isPageContext").Exists() {
+				p.lastPageExecutionContextId = gjson.Get(msg, "params.context.id").Int()
+			}
+			if gjson.Get(msg, "params.context.frameId").Exists() {
+				msg, err = sjson.Set(msg, "params.context.auxData", map[string]interface{}{
+					"frameId":   gjson.Get(msg, "params.context.frameId").String(),
+					"isDefault": true,
+				})
+				if err != nil {
+					log.Panic(err)
+				}
+				msg, err = sjson.Delete(msg, "params.context.frameId")
+				if err != nil {
+					log.Panic(err)
+				}
+			}
+		}
+	}
+
+	return []byte(msg)
+}
+
 func (p *ProtocolAdapter) onEvaluate(message []byte) []byte {
 	msg := string(message)
 	var err error
@@ -227,36 +258,41 @@ func (p *ProtocolAdapter) onRuntimeOnCompileScript(message []byte) []byte {
 	return nil
 }
 
-func (p *ProtocolAdapter) onExecutionContextCreated(message []byte) []byte {
-	msg := string(message)
+func (p *ProtocolAdapter) onRuntimeGetProperties(message []byte) []byte{
+	var newPropertyDescriptors []interface{}
 	var err error
-	if gjson.Get(msg, "params").Exists() && gjson.Get(msg, "params.context").Exists() {
-		if !gjson.Get(msg, "params.context.origin").Exists() {
-			msg, err = sjson.Set(msg, "params.context.origin", gjson.Get(msg, "params.context.name").String())
-			if err != nil {
+	msg := string(message)
+	for _,node := range gjson.Get(msg,"result.result").Array(){
+		isOwn := node.Get("isOwn")
+		nativeGetter := node.Get("nativeGetter")
+		if isOwn.Exists() || nativeGetter.Exists(){
+			msg,err = sjson.Set(msg,isOwn.Path(string(message)),true)
+			if err!=nil {
 				log.Panic(err)
 			}
-			if gjson.Get(msg, "params.context.isPageContext").Exists() {
-				p.lastPageExecutionContextId = gjson.Get(msg, "params.context.id").Int()
-			}
-			if gjson.Get(msg, "params.context.frameId").Exists() {
-				msg, err = sjson.Set(msg, "params.context.auxData", map[string]interface{}{
-					"frameId":   gjson.Get(msg, "params.context.frameId").String(),
-					"isDefault": true,
-				})
-				if err != nil {
-					log.Panic(err)
-				}
-				msg, err = sjson.Delete(msg, "params.context.frameId")
-				if err != nil {
-					log.Panic(err)
-				}
-			}
+			newPropertyDescriptors = append(newPropertyDescriptors,gjson.Get(msg,node.Path(msg)).Value())
 		}
 	}
-
+	msg,err = sjson.Set(msg,"result.result",newPropertyDescriptors)
+	if err!=nil {
+		log.Panic(err)
+	}
 	return []byte(msg)
 }
+
+func (p *ProtocolAdapter) onScriptParsed(message []byte) []byte{
+	p.lastScriptEval = gjson.Get(string(message),"params.scriptId")
+	return message
+}
+
+func (p *ProtocolAdapter) onDomEnable(message []byte) []byte{
+	p.adapter.FireResultToTools(int(gjson.Get(string(message),"id").Int()), map[string]interface{}{})
+	return nil
+}
+
+//func (p *ProtocolAdapter) onSetInspectMode(message []byte) []byte{
+//
+//}
 
 func (p *ProtocolAdapter) onAddRule(message []byte) []byte {
 	var selector = gjson.Get(string(message), "params.ruleText").String()
