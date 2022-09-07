@@ -77,6 +77,18 @@ func (a *Adapter) sendToTarget(message *entity.TargetProtocol) {
 	a.sendWebkit(arr)
 }
 
+func (a *Adapter) FireEventToTools(method string, params interface{}) {
+	response := map[string]interface{}{
+		"method": method,
+		"params": params,
+	}
+	arr, err := json.Marshal(response)
+	if err != nil {
+		log.Panic(err)
+	}
+	a.sendDevTool(arr)
+}
+
 func (a *Adapter) FireResultToTools(id int, params interface{}) {
 	response := map[string]interface{}{
 		"id":     id,
@@ -86,7 +98,7 @@ func (a *Adapter) FireResultToTools(id int, params interface{}) {
 	if err != nil {
 		log.Panic(err)
 	}
-	a.sendWebkit(arr)
+	a.sendDevTool(arr)
 }
 
 func (a *Adapter) SetSendWebkit(sendWebkit func([]byte)) {
@@ -94,7 +106,7 @@ func (a *Adapter) SetSendWebkit(sendWebkit func([]byte)) {
 }
 
 func (a *Adapter) SetSendDevTool(sendDevTool func([]byte)) {
-	a.sendWebkit = sendDevTool
+	a.sendDevTool = sendDevTool
 }
 
 func (a *Adapter) SetReceiveWebkit(receiveWebkit func([]byte)) {

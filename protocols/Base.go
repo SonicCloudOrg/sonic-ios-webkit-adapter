@@ -10,6 +10,7 @@ import (
 	"sonic-ios-webkit-adapter/adapter"
 	"sonic-ios-webkit-adapter/entity"
 	"strings"
+	"time"
 )
 
 type MessageAdapters func(message []byte) []byte
@@ -329,6 +330,209 @@ func (p *ProtocolAdapter) onInspect(message []byte) []byte {
 		log.Panic(err)
 	}
 	return []byte(msg)
+}
+
+func (p *ProtocolAdapter) domDebuggerOnGetEventListeners(message []byte) []byte {
+	requestNodeParams := map[string]interface{}{
+		"objectId": gjson.Get(string(message), "params.objectId").Value(),
+	}
+	p.adapter.CallTarget("DOM.requestNode", requestNodeParams, func(message []byte) {
+		getEventListenersForNodeParams := map[string]interface{}{
+			"nodeId":      gjson.Get(string(message), "result.nodeId").Value(),
+			"objectGroup": "event-listeners-panel",
+		}
+		p.adapter.CallTarget("DOM.getEventListenersForNode", getEventListenersForNodeParams, func(message []byte) {
+			listeners := gjson.Get(string(message), "listeners").Array()
+			var mappedListeners []map[string]interface{}
+			for _, listener := range listeners {
+				mappedListeners = append(mappedListeners, map[string]interface{}{
+					"type":       listener.Get("type").Value(),
+					"useCapture": listener.Get("useCapture").Value(),
+					"passive":    false, // iOS doesn't support this property, http://compatibility.remotedebug.org/DOM/Safari%20iOS%209.3/types/EventListener,
+					"location":   listener.Get("location").Value(),
+					"hander":     listener.Get("hander").Value(),
+				})
+			}
+			mappedResult := map[string]interface{}{
+				"listeners": mappedListeners,
+			}
+			p.adapter.FireResultToTools(int(gjson.Get(string(message), "id").Int()), mappedResult)
+		})
+	})
+	return nil
+}
+
+func (p *ProtocolAdapter) onPushNodesByBackendIdsToFrontend(message []byte) []byte {
+	id := gjson.Get(string(message), "id").Int()
+	var resultBackNodeIds []interface{}
+	for _, backNode := range gjson.Get(string(message), "params.backendNodeIds").Array() {
+		params := map[string]interface{}{
+			"backendNodeId": backNode.Value(),
+		}
+		p.adapter.CallTarget("DOM.pushNodeByBackendIdToFrontend", params, func(message []byte) {
+			resultBackNodeIds = append(resultBackNodeIds, gjson.Get(string(message), "nodeId").Value())
+		})
+	}
+	result := map[string]interface{}{
+		"nodeIds": resultBackNodeIds,
+	}
+	p.adapter.FireResultToTools(int(id), result)
+	return nil
+}
+
+func (p *ProtocolAdapter) onGetBoxModel(message []byte) []byte {
+	params := map[string]interface{}{
+		"highlightConfig": map[string]interface{}{
+			"showInfo":           true,
+			"showRulers":         false,
+			"showExtensionLines": false,
+			"contentColor":       map[string]interface{}{"r": 111, "g": 168, "b": 220, "a": 0.66},
+			"paddingColor":       map[string]interface{}{"r": 147, "g": 196, "b": 125, "a": 0.55},
+			"borderColor":        map[string]interface{}{"r": 255, "g": 229, "b": 153, "a": 0.66},
+			"marginColor":        map[string]interface{}{"r": 246, "g": 178, "b": 107, "a": 0.66},
+			"eventTargetColor":   map[string]interface{}{"r": 255, "g": 196, "b": 196, "a": 0.66},
+			"shapeColor":         map[string]interface{}{"r": 96, "g": 82, "b": 177, "a": 0.8},
+			"shapeMarginColor":   map[string]interface{}{"r": 96, "g": 82, "b": 127, "a": 0.6},
+			"displayAsMaterial":  true,
+		},
+		"nodeId": gjson.Get(string(message), "params.nodeId").Value(),
+	}
+	p.adapter.CallTarget("DOM.highlightNode", params, func(message []byte) {
+
+	})
+	return nil
+}
+
+func (p *ProtocolAdapter) onGetNodeForLocation(message []byte) []byte {
+	evaluateParams := map[string]interface{}{
+		"expression": fmt.Sprintf("document.elementFromPoint(%d,%d)", gjson.Get(string(message), "params.x").Int(), gjson.Get(string(message), "params.y").Int()),
+	}
+	p.adapter.CallTarget("Runtime.evaluate", evaluateParams, func(message []byte) {
+		requestNodeParams := map[string]interface{}{
+			"objectId": gjson.Get(string(message), "result.objectId").Value(),
+		}
+		p.adapter.CallTarget("DOM.requestNode", requestNodeParams, func(msg []byte) {
+			result := map[string]interface{}{
+				"nodeId": gjson.Get(string(msg), "nodeId").Value(),
+			}
+			p.adapter.FireResultToTools(int(gjson.Get(string(message), "id").Int()), result)
+		})
+	})
+	return nil
+}
+
+// todo screencast
+//func (p *ProtocolAdapter) onStartScreencast(message []byte) []byte {
+//
+//}
+//
+//func (p *ProtocolAdapter) onStopScreencast(message []byte) []byte {
+//
+//}
+//
+//func (p *ProtocolAdapter) onScreencastFrameAck(message []byte) []byte {
+//
+//}
+
+func (p *ProtocolAdapter) onGetNavigationHistory(message []byte) []byte {
+	var href string
+	var id = int(gjson.Get(string(message), "id").Int())
+	p.adapter.CallTarget("Runtime.evaluate", map[string]interface{}{"expression": "window.location.href"}, func(message []byte) {
+		href = gjson.Get(string(message), "result.value").String()
+		p.adapter.CallTarget("Runtime.evaluate", map[string]interface{}{"expression": "window.title"}, func(message []byte) {
+			title := gjson.Get(string(message), "result.value").String()
+			p.adapter.FireResultToTools(id, map[string]interface{}{
+				"currentIndex": 0, "entries": []interface{}{
+					map[string]interface{}{
+						"id":    0,
+						"url":   href,
+						"title": title,
+					},
+				},
+			})
+		})
+	})
+	return nil
+}
+
+//func (p *ProtocolAdapter) onEmulateTouchFromMouseEvent(message []byte) []byte {
+//	var simulate func(params interface{}) interface{} = func(params interface{}) interface{} {
+//
+//	}
+//}
+
+func (p *ProtocolAdapter) onCanEmulateNetworkConditions(message []byte) []byte {
+	result := map[string]interface{}{
+		"result": false,
+	}
+	p.adapter.FireResultToTools(int(gjson.Get(string(message), "id").Int()), result)
+	return nil
+}
+
+func (p *ProtocolAdapter) onConsoleMessageAdded(message []byte) []byte {
+	resultMessage := gjson.Get(string(message), "params.message")
+	messageType := resultMessage.Get("type").String()
+	var resultType string
+	if resultType == "log" {
+		switch messageType {
+		case "log":
+			resultType = "log"
+		case "info":
+			resultType = "info"
+		case "error":
+			resultType = "error"
+		default:
+			resultType = "log"
+		}
+	} else {
+		resultType = "log"
+	}
+	consoleMessage := map[string]interface{}{
+		"source":           gjson.Get(string(message), "source").Value(),
+		"level":            resultType,
+		"text":             gjson.Get(string(message), "text").Value(),
+		"lineNumber":       gjson.Get(string(message), "line").Value(),
+		"timestamp":        time.Now().UnixNano(),
+		"url":              gjson.Get(string(message), "url").Value(),
+		"networkRequestId": gjson.Get(string(message), "networkRequestId").Value(),
+	}
+	if gjson.Get(string(message), "stackTrace").Exists() {
+		consoleMessage["stackTrace"] = map[string]interface{}{
+			"callFrames": gjson.Get(string(message), "stackTrace").Value(),
+		}
+	} else {
+		consoleMessage["stackTrace"] = nil
+	}
+	p.adapter.FireEventToTools("Log.entryAdded", consoleMessage)
+	return nil
+}
+
+func (p *ProtocolAdapter) enumerateStyleSheets(message []byte) []byte {
+	p.adapter.CallTarget("CSS.getAllStyleSheets", map[string]interface{}{}, func(message []byte) {
+		msg := string(message)
+		var err error
+		headers := gjson.Get(string(message), "headers")
+		if headers.Exists() {
+			for _, header := range headers.Array() {
+				msg, err = sjson.Set(msg, header.Get("isInline").Path(msg), false)
+				if err != nil {
+					log.Panic(err)
+				}
+				msg, err = sjson.Set(msg, header.Get("startLine").Path(msg), 0)
+				if err != nil {
+					log.Panic(err)
+				}
+				msg, err = sjson.Set(msg, header.Get("startColumn").Path(msg), 0)
+				if err != nil {
+					log.Panic(err)
+				}
+				p.adapter.FireEventToTools("CSS.styleSheetAdded", map[string]interface{}{
+					"header": gjson.Get(msg, header.Path(msg)),
+				})
+			}
+		}
+	})
+	return nil
 }
 
 func (p *ProtocolAdapter) onAddRule(message []byte) []byte {
