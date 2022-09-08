@@ -21,6 +21,7 @@ type ProtocolAdapter struct {
 	lastPageExecutionContextId int64
 	styMap                     map[string]interface{}
 	lastScriptEval             interface{}
+	screencast                 *screencastSession
 }
 
 func (p *ProtocolAdapter) defaultCallFunc(message []byte) {
@@ -422,17 +423,49 @@ func (p *ProtocolAdapter) onGetNodeForLocation(message []byte) []byte {
 }
 
 // todo screencast
-//func (p *ProtocolAdapter) onStartScreencast(message []byte) []byte {
-//
-//}
-//
-//func (p *ProtocolAdapter) onStopScreencast(message []byte) []byte {
-//
-//}
-//
-//func (p *ProtocolAdapter) onScreencastFrameAck(message []byte) []byte {
-//
-//}
+func (p *ProtocolAdapter) onStartScreencast(message []byte) []byte {
+	params := gjson.Get(string(message), "params")
+	format := params.Get("format").String()
+	quality := params.Get("quality").Int()
+	maxWidth := params.Get("maxWidth").Int()
+	maxHeight := params.Get("maxHeight").Int()
+	if p.screencast != nil {
+		// clear previous session
+		p.screencast.stop()
+	}
+	p.screencast = newScreencastSession(p.adapter,
+		WithFormat(format),
+		WithMaxWidth(int(maxWidth)),
+		WithMaxHeight(int(maxHeight)),
+		WithQuality(int(quality)))
+	p.screencast.start()
+
+	p.adapter.FireResultToTools(int(gjson.Get(string(message), "id").Int()), map[string]interface{}{})
+
+	return nil
+}
+
+func (p *ProtocolAdapter) onStopScreencast(message []byte) []byte {
+	if p.screencast != nil {
+		// clear previous session
+		p.screencast.stop()
+		p.screencast = nil
+	}
+	p.adapter.FireResultToTools(int(gjson.Get(string(message), "id").Int()), map[string]interface{}{})
+
+	return nil
+}
+
+func (p *ProtocolAdapter) onScreencastFrameAck(message []byte) []byte {
+	if p.screencast != nil {
+		frameNumber := gjson.Get(string(message), "params.sessionId").Int()
+		// todo Change to int 64?
+		p.screencast.ackFrame(int(frameNumber))
+	}
+	p.adapter.FireResultToTools(int(gjson.Get(string(message), "id").Int()), map[string]interface{}{})
+
+	return nil
+}
 
 func (p *ProtocolAdapter) onGetNavigationHistory(message []byte) []byte {
 	var href string

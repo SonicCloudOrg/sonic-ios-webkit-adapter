@@ -97,6 +97,10 @@ func (s *screencastSession) stop() {
 	s.closeFlag <- true
 }
 
+func (s *screencastSession) ackFrame(frameNumber int) {
+	s.framesAcked[frameNumber] = true
+}
+
 func (s *screencastSession) recordingLoop() {
 	currentFrame := s.frameId
 	if currentFrame > 1 && !s.framesAcked[currentFrame-1] {
