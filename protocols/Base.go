@@ -25,7 +25,7 @@ type ProtocolAdapter struct {
 }
 
 func (p *ProtocolAdapter) defaultCallFunc(message []byte) {
-	log.Println(string(message))
+	//log.Println(string(message))
 }
 
 func (p *ProtocolAdapter) pageSetOverlay(message []byte) []byte {
@@ -149,24 +149,6 @@ func (p *ProtocolAdapter) onDebuggerEnable(message []byte) []byte {
 	return message
 }
 
-func (p *ProtocolAdapter) onGetMatchedStylesForNodeResult(message []byte) []byte {
-	msg := string(message)
-	result := gjson.Get(msg, "result")
-	if result.Exists() {
-		for _, matchedCSSRule := range result.Get("matchedCSSRules").Array() {
-			p.mapRule(matchedCSSRule.Get("rule"), &msg)
-		}
-		for _, inherited := range result.Get("inherited").Array() {
-			if inherited.Get("matchedCSSRules").Exists() {
-				for _, matchedCSSRule := range result.Get("matchedCSSRules").Array() {
-					p.mapRule(matchedCSSRule.Get("rule"), &msg)
-				}
-			}
-		}
-	}
-	return []byte(msg)
-}
-
 func (p *ProtocolAdapter) onExecutionContextCreated(message []byte) []byte {
 	msg := string(message)
 	var err error
@@ -250,7 +232,7 @@ func (p *ProtocolAdapter) onRuntimeOnCompileScript(message []byte) []byte {
 		"expression": gjson.Get(string(message), "params.expression").String(),
 		"contextId":  gjson.Get(string(message), "params.executionContextId").Int(),
 	}
-	p.adapter.CallTarget("Runtime.evaluate", params, func(message []byte) {
+	p.adapter.CallTarget("Runtime.evaluate", params, func(msg []byte) {
 		result := map[string]interface{}{
 			"scriptId":         nil,
 			"exceptionDetails": nil,
@@ -337,13 +319,13 @@ func (p *ProtocolAdapter) domDebuggerOnGetEventListeners(message []byte) []byte 
 	requestNodeParams := map[string]interface{}{
 		"objectId": gjson.Get(string(message), "params.objectId").Value(),
 	}
-	p.adapter.CallTarget("DOM.requestNode", requestNodeParams, func(message []byte) {
+	p.adapter.CallTarget("DOM.requestNode", requestNodeParams, func(result []byte) {
 		getEventListenersForNodeParams := map[string]interface{}{
-			"nodeId":      gjson.Get(string(message), "result.nodeId").Value(),
+			"nodeId":      gjson.Get(string(result), "result.nodeId").Value(),
 			"objectGroup": "event-listeners-panel",
 		}
-		p.adapter.CallTarget("DOM.getEventListenersForNode", getEventListenersForNodeParams, func(message []byte) {
-			listeners := gjson.Get(string(message), "listeners").Array()
+		p.adapter.CallTarget("DOM.getEventListenersForNode", getEventListenersForNodeParams, func(msg []byte) {
+			listeners := gjson.Get(string(msg), "listeners").Array()
 			var mappedListeners []map[string]interface{}
 			for _, listener := range listeners {
 				mappedListeners = append(mappedListeners, map[string]interface{}{
@@ -370,8 +352,8 @@ func (p *ProtocolAdapter) onPushNodesByBackendIdsToFrontend(message []byte) []by
 		params := map[string]interface{}{
 			"backendNodeId": backNode.Value(),
 		}
-		p.adapter.CallTarget("DOM.pushNodeByBackendIdToFrontend", params, func(message []byte) {
-			resultBackNodeIds = append(resultBackNodeIds, gjson.Get(string(message), "nodeId").Value())
+		p.adapter.CallTarget("DOM.pushNodeByBackendIdToFrontend", params, func(msg []byte) {
+			resultBackNodeIds = append(resultBackNodeIds, gjson.Get(string(msg), "nodeId").Value())
 		})
 	}
 	result := map[string]interface{}{
@@ -408,15 +390,15 @@ func (p *ProtocolAdapter) onGetNodeForLocation(message []byte) []byte {
 	evaluateParams := map[string]interface{}{
 		"expression": fmt.Sprintf("document.elementFromPoint(%d,%d)", gjson.Get(string(message), "params.x").Int(), gjson.Get(string(message), "params.y").Int()),
 	}
-	p.adapter.CallTarget("Runtime.evaluate", evaluateParams, func(message []byte) {
+	p.adapter.CallTarget("Runtime.evaluate", evaluateParams, func(result []byte) {
 		requestNodeParams := map[string]interface{}{
-			"objectId": gjson.Get(string(message), "result.objectId").Value(),
+			"objectId": gjson.Get(string(result), "result.objectId").Value(),
 		}
 		p.adapter.CallTarget("DOM.requestNode", requestNodeParams, func(msg []byte) {
-			result := map[string]interface{}{
+			resultParams := map[string]interface{}{
 				"nodeId": gjson.Get(string(msg), "nodeId").Value(),
 			}
-			p.adapter.FireResultToTools(int(gjson.Get(string(message), "id").Int()), result)
+			p.adapter.FireResultToTools(int(gjson.Get(string(message), "id").Int()), resultParams)
 		})
 	})
 	return nil
@@ -470,10 +452,10 @@ func (p *ProtocolAdapter) onScreencastFrameAck(message []byte) []byte {
 func (p *ProtocolAdapter) onGetNavigationHistory(message []byte) []byte {
 	var href string
 	var id = int(gjson.Get(string(message), "id").Int())
-	p.adapter.CallTarget("Runtime.evaluate", map[string]interface{}{"expression": "window.location.href"}, func(message []byte) {
-		href = gjson.Get(string(message), "result.value").String()
-		p.adapter.CallTarget("Runtime.evaluate", map[string]interface{}{"expression": "window.title"}, func(message []byte) {
-			title := gjson.Get(string(message), "result.value").String()
+	p.adapter.CallTarget("Runtime.evaluate", map[string]interface{}{"expression": "window.location.href"}, func(result []byte) {
+		href = gjson.Get(string(result), "result.value").String()
+		p.adapter.CallTarget("Runtime.evaluate", map[string]interface{}{"expression": "window.title"}, func(msg []byte) {
+			title := gjson.Get(string(msg), "result.value").String()
 			p.adapter.FireResultToTools(id, map[string]interface{}{
 				"currentIndex": 0, "entries": []interface{}{
 					map[string]interface{}{
@@ -583,43 +565,62 @@ func (p *ProtocolAdapter) onAddRule(message []byte) []byte {
 		if err != nil {
 			log.Panic(err)
 		}
-		p.mapRule(gjson.Get(msg, "rule"), &msg)
+		msg = p.mapRule(gjson.Get(msg, "rule"), msg)
 		p.adapter.FireResultToTools(int(gjson.Get(msg, "id").Int()), param)
 	})
 	return nil
 }
 
-func (p *ProtocolAdapter) mapRule(cssRule gjson.Result, message *string) {
+func (p *ProtocolAdapter) mapRule(cssRule gjson.Result, message string) string {
 	var err error
 	if cssRule.Get("ruleId").Exists() {
-		path := cssRule.Get("styleSheetId").Path(*message)
-		*message, err = sjson.Set(*message, path, cssRule.Get("ruleId.styleSheetId").Value())
+		path := cssRule.Get("styleSheetId").Path(message)
+		message, err = sjson.Set(message, path, cssRule.Get("ruleId.styleSheetId").Value())
 		if err != nil {
 			log.Panic(err)
 		}
-		*message, err = sjson.Delete(*message, path)
+		message, err = sjson.Delete(message, path)
 		if err != nil {
 			log.Panic(err)
 		}
 		// todo
-		//p.mapSelectorList(nil)
+		p.mapSelectorList(nil)
 
 		p.mapStyle(cssRule.Get("style"), cssRule.Get("origin").String(), message)
 
-		path = cssRule.Get("sourceLine").Path(*message)
-		*message, err = sjson.Delete(*message, path)
+		path = cssRule.Get("sourceLine").Path(message)
+		message, err = sjson.Delete(message, path)
 		if err != nil {
 			log.Panic(err)
 		}
 	}
+	return message
 }
 
-func (p *ProtocolAdapter) mapSelectorList(result gjson.Result) {
+func (p *ProtocolAdapter) mapSelectorList(result *gjson.Result) {
 
 }
 
-// CSSSetStyleTexts todo KeyCheck
-func (p *ProtocolAdapter) CSSSetStyleTexts(message []byte) []byte {
+func (p *ProtocolAdapter) onGetMatchedStylesForNodeResult(message []byte) []byte {
+	msg := string(message)
+	result := gjson.Get(msg, "result")
+	if result.Exists() {
+		for _, matchedCSSRule := range result.Get("matchedCSSRules").Array() {
+			msg = p.mapRule(matchedCSSRule.Get("rule"), msg)
+		}
+		for _, inherited := range result.Get("inherited").Array() {
+			if inherited.Get("matchedCSSRules").Exists() {
+				for _, matchedCSSRule := range result.Get("matchedCSSRules").Array() {
+					msg = p.mapRule(matchedCSSRule.Get("rule"), msg)
+				}
+			}
+		}
+	}
+	return []byte(msg)
+}
+
+// onSetStyleTexts todo KeyCheck
+func (p *ProtocolAdapter) onSetStyleTexts(message []byte) []byte {
 	var msg = string(message)
 	var allStyleText []interface{}
 	resultId := gjson.Get(msg, "id").Int()
@@ -634,9 +635,9 @@ func (p *ProtocolAdapter) CSSSetStyleTexts(message []byte) []byte {
 			"styleSheetId": edit.Get("styleSheetId").String(),
 		}
 		p.adapter.CallTarget("CSS.getStyleSheet", paramsGetStyleSheet, func(message []byte) {
-			msg = string(message)
-			styleSheet := gjson.Get(msg, "styleSheet")
-			styleSheetRules := gjson.Get(msg, "styleSheet.rules")
+			var result = string(message)
+			styleSheet := gjson.Get(result, "styleSheet")
+			styleSheetRules := gjson.Get(result, "styleSheet.rules")
 			if !styleSheet.Exists() || !styleSheetRules.Exists() {
 				log.Panic("iOS returned a value we were not expecting for getStyleSheet")
 			}
@@ -649,10 +650,10 @@ func (p *ProtocolAdapter) CSSSetStyleTexts(message []byte) []byte {
 						},
 						"text": edit.Get("text").String(),
 					}
-					p.adapter.CallTarget("CSS.allStyleText", params, func(message []byte) {
-						msg = string(message)
-						p.mapStyle(gjson.Get(string(message), "style"), "", &msg)
-						allStyleText = append(allStyleText, gjson.Get(msg, "style").Value())
+					p.adapter.CallTarget("CSS.setStyleText", params, func(setStyleResult []byte) {
+						mapStyleResult := p.mapStyle(gjson.Get(string(setStyleResult), "style"), "", string(setStyleResult))
+						allStyleText = append(allStyleText, gjson.Get(mapStyleResult, "style").Value())
+						// stop for
 						whetherToContinueTheCycle = false
 					})
 				}
@@ -666,7 +667,7 @@ func (p *ProtocolAdapter) CSSSetStyleTexts(message []byte) []byte {
 	return nil
 }
 
-func (p *ProtocolAdapter) mapStyle(cssStyle gjson.Result, ruleOrigin string, message *string) {
+func (p *ProtocolAdapter) mapStyle(cssStyle gjson.Result, ruleOrigin string, message string) string {
 	var err error
 	if cssStyle.Get("cssText").Exists() {
 		disabled := p.extractDisabledStyles(cssStyle.Get("cssText").String(), cssStyle.Get("range"))
@@ -694,7 +695,8 @@ func (p *ProtocolAdapter) mapStyle(cssStyle gjson.Result, ruleOrigin string, mes
 				}
 
 				cssPropertiesObjects := cssStyle.Get("cssProperties").Value()
-				path := cssStyle.Get("cssProperties").Path(*message)
+				path := cssStyle.Get("cssProperties").Path(message)
+				// insert index
 				if cssPropertiesArrays, ok := cssPropertiesObjects.([]interface{}); ok {
 					var cssPropertiesFinal []interface{}
 					cssPropertiesLeft := cssPropertiesArrays[:index+1]
@@ -713,25 +715,23 @@ func (p *ProtocolAdapter) mapStyle(cssStyle gjson.Result, ruleOrigin string, mes
 					if err1 != nil {
 						log.Panic(err1)
 					}
-					*message, err = sjson.Set(*message, path, string(arr))
+					message, err = sjson.Set(message, path, string(arr))
 					if err != nil {
 						log.Panic(err)
 					}
 				} else {
 					log.Panic(fmt.Errorf("failed to convert object"))
 				}
-
 			}
-
 		}
 	}
 
-	for _, cssProperty := range cssStyle.Get("cssProperties").Array() {
-		p.mapCssProperty(cssProperty, message)
+	for _, cssProperty := range gjson.Get(message, cssStyle.Get("cssProperties").Path(message)).Array() {
+		message = p.mapCssProperty(cssProperty, message)
 	}
 	if ruleOrigin != "user-agent" {
-		path := cssStyle.Get("styleSheetId").Path(*message)
-		*message, err = sjson.Set(*message, path, cssStyle.Get("styleId.styleSheetId").String())
+		path := cssStyle.Get("styleSheetId").Path(message)
+		message, err = sjson.Set(message, path, cssStyle.Get("styleId.styleSheetId").String())
 		if err != nil {
 			log.Panic(err)
 		}
@@ -742,84 +742,76 @@ func (p *ProtocolAdapter) mapStyle(cssStyle gjson.Result, ruleOrigin string, mes
 		var styleKey = fmt.Sprintf("%s_%s", cssStyle.Get("styleId.styleSheetId").String(), string(cssStyleRangeArr))
 		if p.styMap == nil {
 			p.styMap = make(map[string]interface{})
-			p.styMap[styleKey] = cssStyle.Get("styleId.styleSheetId").String()
+
 		}
+		p.styMap[styleKey] = cssStyle.Get("styleId.styleSheetId").String()
 		// delete
-		path = cssStyle.Get("styleId").Path(*message)
-		*message, err = sjson.Delete(*message, path)
+		path = cssStyle.Get("styleId").Path(message)
+		message, err = sjson.Delete(message, path)
 		if err != nil {
 			log.Panic(err)
 		}
-		path = cssStyle.Get("sourceLine").Path(*message)
-		*message, err = sjson.Delete(*message, path)
+		path = cssStyle.Get("sourceLine").Path(message)
+		message, err = sjson.Delete(message, path)
 		if err != nil {
 			log.Panic(err)
 		}
-		path = cssStyle.Get("sourceURL").Path(*message)
-		*message, err = sjson.Delete(*message, path)
+		path = cssStyle.Get("sourceURL").Path(message)
+		message, err = sjson.Delete(message, path)
 		if err != nil {
 			log.Panic(err)
 		}
-		path = cssStyle.Get("width").Path(*message)
-		*message, err = sjson.Delete(*message, path)
+		path = cssStyle.Get("width").Path(message)
+		message, err = sjson.Delete(message, path)
 		if err != nil {
 			log.Panic(err)
 		}
-		path = cssStyle.Get("height").Path(*message)
-		*message, err = sjson.Delete(*message, path)
+		path = cssStyle.Get("height").Path(message)
+		message, err = sjson.Delete(message, path)
 		if err != nil {
 			log.Panic(err)
 		}
 	}
+	return message
 }
 
-func (p *ProtocolAdapter) mapCssProperty(cssProperty gjson.Result, message *string) {
+func (p *ProtocolAdapter) mapCssProperty(cssProperty gjson.Result, message string) string {
 	var err error
-	path := cssProperty.Get("status.disabled").Path(*message)
+	path := cssProperty.Get("status.disabled").Path(message)
 	if cssProperty.Get("status").String() == "disabled" {
-		*message, err = sjson.Set(*message, path, true)
+		message, err = sjson.Set(message, path, true)
 		if err != nil {
 			log.Panic(err)
 		}
 	} else if cssProperty.Get("status").String() == "active" {
-		*message, err = sjson.Set(*message, path, false)
+		message, err = sjson.Set(message, path, false)
 		if err != nil {
 			log.Panic(err)
 		}
 	}
-	path = cssProperty.Get("status").Path(*message)
-	*message, err = sjson.Delete(*message, path)
+	// delete cssProperty.status;
+	path = cssProperty.Get("status").Path(message)
+	message, err = sjson.Delete(message, path)
 	if err != nil {
 		log.Panic(err)
 	}
+
 	priority := cssProperty.Get("priority")
-
-	path = cssProperty.Path(*message) + ".important"
-
-	if cssProperty.Get("priority").Exists() {
-		if priority.String() == "" {
-			*message, err = sjson.Set(*message, path, false)
-			if err != nil {
-				log.Panic(err)
-			}
-		} else {
-			*message, err = sjson.Set(*message, path, true)
-			if err != nil {
-				log.Panic(err)
-			}
-		}
+	if priority.Exists() && priority.String() != "" {
+		message, err = sjson.Set(message, cssProperty.Get("important").Path(message), true)
 	} else {
-		*message, err = sjson.Set(*message, path, false)
-		if err != nil {
-			log.Panic(err)
-		}
+		message, err = sjson.Set(message, cssProperty.Get("important").Path(message), false)
 	}
-
-	path = priority.Path(*message)
-	*message, err = sjson.Delete(*message, path)
 	if err != nil {
 		log.Panic(err)
 	}
+
+	path = priority.Path(message)
+	message, err = sjson.Delete(message, path)
+	if err != nil {
+		log.Panic(err)
+	}
+	return message
 }
 
 // extractDisabledStyles todo KeyCheck
@@ -834,7 +826,7 @@ func (p *ProtocolAdapter) extractDisabledStyles(styleText string, cssRange gjson
 			index = index + len(BEGIN_COMMENT)
 		} else if endIndexENDCOMMENT <= len(styleText) && string([]rune(styleText)[index:endIndexENDCOMMENT]) == END_COMMENT {
 			if len(startIndices) == 0 {
-				return nil
+				return []entity.IDisabledStyle{}
 			}
 			startIndex := startIndices[0]
 			startIndices = startIndices[1:]
@@ -857,7 +849,7 @@ func (p *ProtocolAdapter) extractDisabledStyles(styleText string, cssRange gjson
 		}
 	}
 	if len(startIndices) == 0 {
-		return nil
+		return []entity.IDisabledStyle{}
 	}
 	return styles
 }
