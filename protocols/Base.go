@@ -15,6 +15,8 @@ import (
 
 type MessageAdapters func(message []byte) []byte
 
+type MapSelectorList func(selectorList gjson.Result, message string) string
+
 type ProtocolAdapter struct {
 	adapter                    *adapters.Adapter
 	lastNodeId                 int64
@@ -22,6 +24,7 @@ type ProtocolAdapter struct {
 	styMap                     map[string]interface{}
 	lastScriptEval             interface{}
 	screencast                 *screencastSession
+	mapSelectorList            MapSelectorList
 }
 
 func (p *ProtocolAdapter) defaultCallFunc(message []byte) {
@@ -470,11 +473,68 @@ func (p *ProtocolAdapter) onGetNavigationHistory(message []byte) []byte {
 	return nil
 }
 
-//func (p *ProtocolAdapter) onEmulateTouchFromMouseEvent(message []byte) []byte {
-//	var simulate func(params interface{}) interface{} = func(params interface{}) interface{} {
-//
-//	}
-//}
+func (p *ProtocolAdapter) onEmulateTouchFromMouseEvent(message []byte) []byte {
+	var funcStr = `function simulate(params) {
+                const element = document.elementFromPoint(params.x, params.y);
+                const e = new MouseEvent(params.type, {
+                    screenX: params.x,
+                    screenY: params.y,
+                    clientX: 0,
+                    clientY: 0,
+                    ctrlKey: (params.modifiers & 2) === 2,
+                    shiftKey: (params.modifiers & 8) === 8,
+                    altKey: (params.modifiers & 1) === 1,
+                    metaKey: (params.modifiers & 4) === 4,
+                    button: params.button,
+                    bubbles: true,
+                    cancelable: false
+                });
+                element.dispatchEvent(e);
+                return element;
+            }`
+	msg := string(message)
+	var err error
+	switch gjson.Get(msg, "params.type").String() {
+	case "mousePressed":
+		msg, err = sjson.Set(msg, "params.type", "mousedown")
+		if err != nil {
+			log.Panic(err)
+		}
+		break
+	case "mouseReleased":
+		msg, err = sjson.Set(msg, "params.type", "click")
+		if err != nil {
+			log.Panic(err)
+		}
+		break
+	case "mouseMoved":
+		msg, err = sjson.Set(msg, "params.type", "mousemove")
+		if err != nil {
+			log.Panic(err)
+		}
+		break
+	default:
+		log.Panic(fmt.Sprintf("Unknown emulate mouse event name %s", gjson.Get(msg, "params.type").String()))
+	}
+	var exp = fmt.Sprintf("(%s)(%s)", funcStr, msg)
+
+	p.adapter.CallTarget("Runtime.evaluate", map[string]interface{}{
+		"expression": exp,
+	}, func(result []byte) {
+		if gjson.Get(msg, "params.type").String() == "click" {
+			msg, err = sjson.Set(msg, "params.type", "mouseup")
+			if err != nil {
+				log.Panic(err)
+			}
+		}
+		p.adapter.CallTarget("Runtime.evaluate", map[string]interface{}{
+			"expression": exp,
+		}, func(message []byte) {
+
+		})
+	})
+	return p.adapter.ReplyWithEmpty(msg)
+}
 
 func (p *ProtocolAdapter) onCanEmulateNetworkConditions(message []byte) []byte {
 	result := map[string]interface{}{
@@ -584,7 +644,7 @@ func (p *ProtocolAdapter) mapRule(cssRule gjson.Result, message string) string {
 			log.Panic(err)
 		}
 		// todo
-		p.mapSelectorList(nil)
+		message = p.mapSelectorList(cssRule.Get("selectorList"), message)
 
 		p.mapStyle(cssRule.Get("style"), cssRule.Get("origin").String(), message)
 
@@ -595,10 +655,6 @@ func (p *ProtocolAdapter) mapRule(cssRule gjson.Result, message string) string {
 		}
 	}
 	return message
-}
-
-func (p *ProtocolAdapter) mapSelectorList(result *gjson.Result) {
-
 }
 
 func (p *ProtocolAdapter) onGetMatchedStylesForNodeResult(message []byte) []byte {

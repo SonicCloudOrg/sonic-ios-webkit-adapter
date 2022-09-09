@@ -2,6 +2,7 @@ package adapters
 
 import (
 	"encoding/json"
+	"github.com/tidwall/gjson"
 	"log"
 	"sonic-ios-webkit-adapter/entity"
 	"sonic-ios-webkit-adapter/protocols"
@@ -99,6 +100,15 @@ func (a *Adapter) FireResultToTools(id int, params interface{}) {
 		log.Panic(err)
 	}
 	a.sendDevTool(arr)
+}
+
+func (a *Adapter) ReplyWithEmpty(msg string) []byte {
+	a.FireResultToTools(int(gjson.Get(msg, "id").Int()), map[string]interface{}{})
+	return nil
+}
+
+func (a *Adapter) SetTargetID(targetID string) {
+	a.targetID = targetID
 }
 
 func (a *Adapter) SetSendWebkit(sendWebkit func([]byte)) {
