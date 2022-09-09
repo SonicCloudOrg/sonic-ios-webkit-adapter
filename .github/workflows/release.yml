@@ -1,0 +1,20 @@
+name: release to github
+
+on:
+  push:
+    tags:
+      - "v*.*.*"
+      
+jobs:
+  build:
+
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v2
+        with:
+          fetch-depth: 0
+      - uses: softprops/action-gh-release@v1
+        with:
+          draft: false
+          generate_release_notes: true
