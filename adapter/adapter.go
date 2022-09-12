@@ -18,6 +18,7 @@ package adapters
 
 import (
 	"encoding/json"
+	"github.com/gorilla/websocket"
 	"github.com/tidwall/gjson"
 	"log"
 	"sonic-ios-webkit-adapter/entity"
@@ -29,11 +30,16 @@ type MessageAdapters func(message []byte) []byte
 type Adapter struct {
 	targetID          string
 	messageFilters    map[string]MessageAdapters
+	messageBuffer     [][]byte
 	isTargetBased     bool
 	applicationID     *string
 	pageID            *int
 	waitingForID      int
-	adapterRequestMap map[int]func(message []byte)
+	toolRequestMap    map[int64]string
+	adapterRequestMap map[int64]func(message []byte)
+	wsToolServer      *websocket.Conn
+	wsWebkitServer    *websocket.Conn
+	isToolConnect     bool
 	// 给iOS
 	sendWebkit func([]byte)
 	// 给devtool
@@ -62,7 +68,9 @@ func (a *Adapter) CallTarget(method string, params interface{}, callFunc func(me
 	message.ID = a.waitingForID
 	message.Method = method
 	message.Params = params
-	a.adapterRequestMap[a.waitingForID] = callFunc
+	if callFunc != nil {
+		a.adapterRequestMap[int64(a.waitingForID)] = callFunc
+	}
 	a.sendToTarget(message)
 }
 
@@ -130,6 +138,139 @@ func (a *Adapter) SetTargetBased(flag bool) {
 
 func (a *Adapter) SetTargetID(targetID string) {
 	a.targetID = targetID
+}
+
+// todo webkit debug ws close case
+func (a *Adapter) Connect(wsPath string, toolWs *websocket.Conn) {
+	a.wsToolServer = toolWs
+	conn, _, err := websocket.DefaultDialer.Dial(wsPath, nil)
+	if err != nil {
+		log.Panic(err)
+	}
+	a.wsWebkitServer = conn
+	a.isToolConnect = true
+
+	go func() {
+		for {
+			_, message, err := a.wsWebkitServer.ReadMessage()
+			if err != nil {
+				log.Println("Error during message reading:", err)
+				break
+			}
+			if message != nil {
+				if len(message) == 0 {
+					continue
+				}
+				a.receiveWebKit(message)
+			}
+		}
+	}()
+	for _, value := range a.messageBuffer {
+		a.receiveDevTool(value)
+	}
+	a.messageBuffer = [][]byte{}
+}
+
+func (a *Adapter) defaultSendWebkit(message []byte) {
+	if message == nil {
+		return
+	}
+	err := a.wsWebkitServer.WriteMessage(websocket.TextMessage, message)
+	if err != nil {
+		log.Panic(err)
+	}
+}
+
+func (a *Adapter) defaultReceiveWebkit(message []byte) {
+	msg := string(message)
+	if a.isTargetBased {
+		method := gjson.Get(msg, "method")
+		if method.Exists() || strings.Index(method.String(), "Target") != 0 {
+			return
+		}
+		if method.String() == "Target.dispatchMessageFromTarget" {
+			msg = gjson.Get(msg, "params.message").String()
+		}
+	}
+	// id exists in the message
+	if strings.Contains(msg, "id") {
+		id := gjson.Get(msg, "id").Int()
+		if a.toolRequestMap[id] != "" {
+			var eventName = a.toolRequestMap[id]
+			if strings.Contains(msg, "err") && a.messageFilters["error"] != nil {
+				eventName = "error"
+			}
+
+			if a.messageFilters[eventName] != nil {
+				rawMessage := a.messageFilters[eventName]([]byte(msg))
+				if rawMessage != nil {
+					a.sendDevTool(rawMessage)
+				}
+			} else {
+				a.sendDevTool([]byte(msg))
+			}
+		} else if a.adapterRequestMap[id] != nil {
+			adapterFunc := a.adapterRequestMap[id]
+			delete(a.adapterRequestMap, id)
+			// 调用注册的回调函数
+			if strings.Contains(msg, "result") {
+				adapterFunc([]byte(gjson.Get(msg, "result").String()))
+			} else if strings.Contains(msg, "error") {
+				adapterFunc([]byte(gjson.Get(msg, "error").String()))
+			} else {
+				log.Println("unhandled type of request message from target:")
+				log.Println(msg)
+				log.Println()
+			}
+		} else {
+			log.Println("unhandled message from target:")
+			log.Println(msg)
+			log.Println()
+		}
+	} else {
+		var eventName = gjson.Get(msg, "method").String()
+		if a.messageFilters[eventName] != nil {
+			rawMessage := a.messageFilters[eventName]([]byte(msg))
+			if rawMessage != nil {
+				a.sendDevTool(rawMessage)
+			}
+		} else {
+			a.sendDevTool([]byte(msg))
+		}
+	}
+}
+
+func (a *Adapter) defaultSendDevTool(message []byte) {
+	if message == nil {
+		return
+	}
+	err := a.wsToolServer.WriteMessage(websocket.TextMessage, message)
+	if err != nil {
+		log.Println(err)
+	}
+}
+
+func (a *Adapter) defaultReceiveDevTool(message []byte) {
+	if !a.isToolConnect {
+		a.messageBuffer = append(a.messageBuffer, message)
+		return
+	}
+	msg := string(message)
+	eventName := gjson.Get(msg, "method").String()
+	id := gjson.Get(msg, "id").Int()
+	a.toolRequestMap[id] = eventName
+
+	if a.messageFilters[eventName] != nil {
+		message = a.messageFilters[eventName](message)
+	}
+	if message != nil {
+		protocolMessage := &entity.TargetProtocol{}
+		err := json.Unmarshal(message, protocolMessage)
+		if err != nil {
+			log.Panic(err)
+		}
+		a.sendToTarget(protocolMessage)
+	}
 }
 
 func (a *Adapter) SetSendWebkit(sendWebkit func([]byte)) {
