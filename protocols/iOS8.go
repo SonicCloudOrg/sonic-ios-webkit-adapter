@@ -4,12 +4,23 @@ import (
 	"github.com/tidwall/gjson"
 	"github.com/tidwall/sjson"
 	"log"
+	adapters "sonic-ios-webkit-adapter/adapter"
 )
 
-type IOS8 struct {
+type iOS8 struct {
+	adapter *adapters.Adapter
 }
 
-func (i *IOS8) targetError(message []byte) []byte {
+func initIOS8(protocol *ProtocolAdapter) {
+	result := &iOS8{
+		adapter: protocol.adapter,
+	}
+	protocol.init()
+	protocol.adapter.AddMessageFilter("error", result.targetError)
+	protocol.mapSelectorList = result.mapSelectorList
+}
+
+func (i *iOS8) targetError(message []byte) []byte {
 	params := map[string]interface{}{
 		"id":     gjson.Get(string(message), "id"),
 		"result": map[string]interface{}{},
@@ -21,7 +32,7 @@ func (i *IOS8) targetError(message []byte) []byte {
 	return []byte(msg)
 }
 
-func (i *IOS8) mapSelectorList(selectorList gjson.Result, message string) string {
+func (i *iOS8) mapSelectorList(selectorList gjson.Result, message string) string {
 	cssRange := selectorList.Get("range")
 	var err error
 	for _, selector := range selectorList.Get("selectors").Array() {

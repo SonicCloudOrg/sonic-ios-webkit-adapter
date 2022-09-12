@@ -5,13 +5,14 @@ import (
 	"github.com/tidwall/gjson"
 	"log"
 	"sonic-ios-webkit-adapter/entity"
-	"sonic-ios-webkit-adapter/protocols"
 	"strings"
 )
 
+type MessageAdapters func(message []byte) []byte
+
 type Adapter struct {
 	targetID          string
-	messageFilters    map[string]protocols.MessageAdapters
+	messageFilters    map[string]MessageAdapters
 	isTargetBased     bool
 	applicationID     *string
 	pageID            *int
@@ -27,9 +28,9 @@ type Adapter struct {
 	receiveDevTool func([]byte)
 }
 
-func (a *Adapter) AddMessageFilter(method string, filter protocols.MessageAdapters) {
+func (a *Adapter) AddMessageFilter(method string, filter MessageAdapters) {
 	if a.messageFilters == nil {
-		a.messageFilters = make(map[string]protocols.MessageAdapters)
+		a.messageFilters = make(map[string]MessageAdapters)
 	}
 	a.messageFilters[method] = filter
 }
@@ -105,6 +106,10 @@ func (a *Adapter) FireResultToTools(id int, params interface{}) {
 func (a *Adapter) ReplyWithEmpty(msg string) []byte {
 	a.FireResultToTools(int(gjson.Get(msg, "id").Int()), map[string]interface{}{})
 	return nil
+}
+
+func (a *Adapter) SetTargetBased(flag bool) {
+	a.isTargetBased = flag
 }
 
 func (a *Adapter) SetTargetID(targetID string) {

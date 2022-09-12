@@ -9,87 +9,182 @@ import (
 	"regexp"
 	"sonic-ios-webkit-adapter/adapter"
 	"sonic-ios-webkit-adapter/entity"
+	"strconv"
 	"strings"
 	"time"
 )
 
-type MessageAdapters func(message []byte) []byte
+func NewProtocolAdapter(adapter *adapters.Adapter, version string) *ProtocolAdapter {
+	protocol := &ProtocolAdapter{
+		adapter: adapter,
+	}
+	parts := strings.Split(version, ".")
+	if len(parts) > 0 {
+		major, err := strconv.Atoi(parts[0])
+		if err != nil {
+			log.Panic(err)
+		}
+		if major <= 8 {
+			initIOS8(protocol)
+			return protocol
+		}
+		minor, err := strconv.Atoi(parts[1])
+		if err != nil {
+			log.Panic(err)
+		}
+		if major > 12 || major >= 12 && minor >= 2 {
+			initIOS12(protocol)
+			return protocol
+		}
+	}
+	initIOS9(protocol)
+	return protocol
+}
 
-type MapSelectorList func(selectorList gjson.Result, message string) string
+type mapSelectorListFunc func(selectorList gjson.Result, message string) string
 
 type ProtocolAdapter struct {
 	adapter                    *adapters.Adapter
 	lastNodeId                 int64
 	lastPageExecutionContextId int64
-	styMap                     map[string]interface{}
+	styleMap                   map[string]interface{}
 	lastScriptEval             interface{}
 	screencast                 *screencastSession
-	mapSelectorList            MapSelectorList
+	mapSelectorList            mapSelectorListFunc
+}
+
+func (p *ProtocolAdapter) init() {
+	p.styleMap = make(map[string]interface{})
+
+	p.adapter.AddMessageFilter("DOM.getDocument", p.onDomGetDocument)
+	// CSS
+	p.adapter.AddMessageFilter("CSS.setStyleTexts", p.onSetStyleTexts)
+	p.adapter.AddMessageFilter("CSS.getMatchedStylesForNode", p.onGetMatchedStylesForNode)
+	p.adapter.AddMessageFilter("CSS.getBackgroundColors", p.onGetBackgroundColors)
+	p.adapter.AddMessageFilter("CSS.addRule", p.onAddRule)
+	p.adapter.AddMessageFilter("CSS.getPlatformFontsForNode", p.onGetPlatformFontsForNode)
+
+	p.adapter.AddMessageFilter("CSS.getMatchedStylesForNode", p.onGetMatchedStylesForNodeResult)
+	// Page
+	p.adapter.AddMessageFilter("Page.startScreencast", p.onStartScreencast)
+	p.adapter.AddMessageFilter("Page.stopScreencast", p.onStopScreencast)
+	p.adapter.AddMessageFilter("Page.screencastFrameAck", p.onScreencastFrameAck)
+	p.adapter.AddMessageFilter("Page.getNavigationHistory", p.onGetNavigationHistory)
+	p.adapter.AddMessageFilter("Page.setOverlayMessage", p.onPageSetOverlay)
+	p.adapter.AddMessageFilter("Page.configureOverlay", p.onPageConfigureOverlay)
+	// DOM
+	p.adapter.AddMessageFilter("DOM.enable", p.onDomEnable)
+	p.adapter.AddMessageFilter("DOM.setInspectMode", p.onSetInspectMode)
+	p.adapter.AddMessageFilter("DOM.setInspectedNode", p.onDomSetInspectedNode)
+	p.adapter.AddMessageFilter("DOM.pushNodesByBackendIdsToFrontend", p.onPushNodesByBackendIdsToFrontend)
+	p.adapter.AddMessageFilter("DOM.getBoxModel", p.onGetBoxModel)
+	p.adapter.AddMessageFilter("DOM.getNodeForLocation", p.onGetNodeForLocation)
+	// DOMDebugger
+	p.adapter.AddMessageFilter("DOMDebugger.getEventListeners", p.domDebuggerOnGetEventListeners)
+	// Debugger
+	p.adapter.AddMessageFilter("Debugger.canSetScriptSource", p.onCanSetScriptSource)
+	p.adapter.AddMessageFilter("Debugger.setBlackboxPatterns", p.onSetBlackboxPatterns)
+	p.adapter.AddMessageFilter("Debugger.setAsyncCallStackDepth", p.onSetAsyncCallStackDepth)
+	p.adapter.AddMessageFilter("Debugger.enable", p.onDebuggerEnable)
+
+	p.adapter.AddMessageFilter("Debugger.scriptParsed", p.onScriptParsed)
+	// Emulation
+	p.adapter.AddMessageFilter("Emulation.canEmulate", p.onCanEmulate)
+	p.adapter.AddMessageFilter("Emulation.setTouchEmulationEnabled", p.onEmulationSetTouchEmulationEnabled)
+	p.adapter.AddMessageFilter("Emulation.setScriptExecutionDisabled", p.onEmulationSetScriptExecutionDisabled)
+	p.adapter.AddMessageFilter("Emulation.setEmulatedMedia", p.onEmulationSetEmulatedMedia)
+	// Rendering
+	p.adapter.AddMessageFilter("Rendering.setShowPaintRects", p.onRenderingSetShowPaintRects)
+	// Input
+	p.adapter.AddMessageFilter("Input.emulateTouchFromMouseEvent", p.onEmulateTouchFromMouseEvent)
+	// Log
+	p.adapter.AddMessageFilter("Log.clear", p.onLogClear)
+	p.adapter.AddMessageFilter("Log.disable", p.onLogDisable)
+	p.adapter.AddMessageFilter("Log.enable", p.onLogEnable)
+	// Console
+	p.adapter.AddMessageFilter("Console.messageAdded", p.onConsoleMessageAdded)
+	// Network
+	p.adapter.AddMessageFilter("Network.getCookies", p.onNetworkGetCookies)
+	p.adapter.AddMessageFilter("Network.deleteCookie", p.onNetworkDeleteCookie)
+	p.adapter.AddMessageFilter("Network.setMonitoringXHREnabled", p.onNetworkSetMonitoringXHREnabled)
+	p.adapter.AddMessageFilter("Network.canEmulateNetworkConditions", p.onCanEmulateNetworkConditions)
+	// Runtime
+	p.adapter.AddMessageFilter("Runtime.compileScript", p.onRuntimeOnCompileScript)
+	p.adapter.AddMessageFilter("Runtime.executionContextCreated", p.onExecutionContextCreated)
+	p.adapter.AddMessageFilter("Runtime.evaluate", p.onEvaluate)
+	p.adapter.AddMessageFilter("Runtime.getProperties", p.onRuntimeGetProperties)
+	// Inspector
+	p.adapter.AddMessageFilter("Inspector.inspect", p.onInspect)
 }
 
 func (p *ProtocolAdapter) defaultCallFunc(message []byte) {
 	//log.Println(string(message))
 }
 
-func (p *ProtocolAdapter) pageSetOverlay(message []byte) []byte {
+func (p *ProtocolAdapter) onDomGetDocument(message []byte) []byte {
+	p.enumerateStyleSheets(message)
+	return message
+}
+
+func (p *ProtocolAdapter) onPageSetOverlay(message []byte) []byte {
 	method := "Debugger.setOverlayMessage"
 	return ReplaceMethodNameAndOutputBinary(message, method)
 }
 
-func (p *ProtocolAdapter) pageConfigureOverlay(message []byte) []byte {
-	return p.pageSetOverlay(message)
+func (p *ProtocolAdapter) onPageConfigureOverlay(message []byte) []byte {
+	return p.onPageSetOverlay(message)
 }
 
-func (p *ProtocolAdapter) domSetInspectedNode(message []byte) []byte {
+func (p *ProtocolAdapter) onDomSetInspectedNode(message []byte) []byte {
 	method := "Console.addInspectedNode"
 	return ReplaceMethodNameAndOutputBinary(message, method)
 }
 
-func (p *ProtocolAdapter) emulationSetTouchEmulationEnabled(message []byte) []byte {
+func (p *ProtocolAdapter) onEmulationSetTouchEmulationEnabled(message []byte) []byte {
 	method := "Page.setTouchEmulationEnabled"
 	return ReplaceMethodNameAndOutputBinary(message, method)
 }
 
-func (p *ProtocolAdapter) emulationSetScriptExecutionDisabled(message []byte) []byte {
+func (p *ProtocolAdapter) onEmulationSetScriptExecutionDisabled(message []byte) []byte {
 	method := "Page.setScriptExecutionDisabled"
 	return ReplaceMethodNameAndOutputBinary(message, method)
 }
 
-func (p *ProtocolAdapter) emulationSetEmulatedMedia(message []byte) []byte {
+func (p *ProtocolAdapter) onEmulationSetEmulatedMedia(message []byte) []byte {
 	method := "Page.setEmulatedMedia"
 	return ReplaceMethodNameAndOutputBinary(message, method)
 }
 
-func (p *ProtocolAdapter) renderingSetShowPaintRects(message []byte) []byte {
+func (p *ProtocolAdapter) onRenderingSetShowPaintRects(message []byte) []byte {
 	method := "Page.setShowPaintRects"
 	return ReplaceMethodNameAndOutputBinary(message, method)
 }
 
-func (p *ProtocolAdapter) logClear(message []byte) []byte {
+func (p *ProtocolAdapter) onLogClear(message []byte) []byte {
 	method := "Console.clearMessages"
 	return ReplaceMethodNameAndOutputBinary(message, method)
 }
 
-func (p *ProtocolAdapter) logDisable(message []byte) []byte {
+func (p *ProtocolAdapter) onLogDisable(message []byte) []byte {
 	method := "Console.disable"
 	return ReplaceMethodNameAndOutputBinary(message, method)
 }
 
-func (p *ProtocolAdapter) logEnable(message []byte) []byte {
+func (p *ProtocolAdapter) onLogEnable(message []byte) []byte {
 	method := "Console.enable"
 	return ReplaceMethodNameAndOutputBinary(message, method)
 }
-func (p *ProtocolAdapter) networkGetCookies(message []byte) []byte {
+func (p *ProtocolAdapter) onNetworkGetCookies(message []byte) []byte {
 	method := "Page.getCookies"
 	return ReplaceMethodNameAndOutputBinary(message, method)
 }
 
-func (p *ProtocolAdapter) networkDeleteCookie(message []byte) []byte {
+func (p *ProtocolAdapter) onNetworkDeleteCookie(message []byte) []byte {
 	method := "Page.deleteCookie"
 	return ReplaceMethodNameAndOutputBinary(message, method)
 }
 
-func (p *ProtocolAdapter) networkSetMonitoringXHREnabled(message []byte) []byte {
+func (p *ProtocolAdapter) onNetworkSetMonitoringXHREnabled(message []byte) []byte {
 	method := "Console.setMonitoringXHREnabled"
 	return ReplaceMethodNameAndOutputBinary(message, method)
 }
@@ -796,11 +891,11 @@ func (p *ProtocolAdapter) mapStyle(cssStyle gjson.Result, ruleOrigin string, mes
 			log.Panic(err1)
 		}
 		var styleKey = fmt.Sprintf("%s_%s", cssStyle.Get("styleId.styleSheetId").String(), string(cssStyleRangeArr))
-		if p.styMap == nil {
-			p.styMap = make(map[string]interface{})
+		if p.styleMap == nil {
+			p.styleMap = make(map[string]interface{})
 
 		}
-		p.styMap[styleKey] = cssStyle.Get("styleId.styleSheetId").String()
+		p.styleMap[styleKey] = cssStyle.Get("styleId.styleSheetId").String()
 		// delete
 		path = cssStyle.Get("styleId").Path(message)
 		message, err = sjson.Delete(message, path)

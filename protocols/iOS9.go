@@ -6,10 +6,16 @@ import (
 	"log"
 )
 
-type IOS9 struct {
+type iOS9 struct {
 }
 
-func (i *IOS9) mapSelectorList(selectorList gjson.Result, message string) string {
+func initIOS9(protocol *ProtocolAdapter) {
+	result := &iOS9{}
+	protocol.init()
+	protocol.mapSelectorList = result.mapSelectorList
+}
+
+func (i *iOS9) mapSelectorList(selectorList gjson.Result, message string) string {
 	cssRange := selectorList.Get("range")
 	var err error
 	for _, selector := range selectorList.Get("selectors").Array() {

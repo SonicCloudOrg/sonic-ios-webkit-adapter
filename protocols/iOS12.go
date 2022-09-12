@@ -5,11 +5,20 @@ import (
 	adapters "sonic-ios-webkit-adapter/adapter"
 )
 
-type IOS12 struct {
+type iOS12 struct {
 	adapter *adapters.Adapter
 }
 
-func (i *IOS12) targetCreated(message []byte) []byte {
+func initIOS12(protocol *ProtocolAdapter) {
+	protocol.adapter.SetTargetBased(true)
+	result := &iOS12{
+		adapter: protocol.adapter,
+	}
+	protocol.init()
+	protocol.adapter.AddMessageFilter("Target.targetCreated", result.targetCreated)
+}
+
+func (i *iOS12) targetCreated(message []byte) []byte {
 	i.adapter.SetTargetID(gjson.Get(string(message), "params.targetInfo.targetId").String())
 	return message
 }
