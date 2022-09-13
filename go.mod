@@ -1,4 +1,4 @@
-module sonic-ios-webkit-adapter
+module github.com/SonicCloudOrg/sonic-ios-webkit-adapter
 
 go 1.18
 
