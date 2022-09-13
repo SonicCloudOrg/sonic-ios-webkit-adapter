@@ -17,9 +17,9 @@
 package protocols
 
 import (
+	adapters "github.com/SonicCloudOrg/sonic-ios-webkit-adapter/adapter"
 	"github.com/tidwall/gjson"
 	"log"
-	adapters "sonic-ios-webkit-adapter/adapter"
 	"strconv"
 	"strings"
 	"time"

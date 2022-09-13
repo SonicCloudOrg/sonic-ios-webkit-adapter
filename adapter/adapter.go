@@ -18,10 +18,10 @@ package adapters
 
 import (
 	"encoding/json"
+	"github.com/SonicCloudOrg/sonic-ios-webkit-adapter/entity"
 	"github.com/gorilla/websocket"
 	"github.com/tidwall/gjson"
 	"log"
-	"sonic-ios-webkit-adapter/entity"
 	"strings"
 )
 

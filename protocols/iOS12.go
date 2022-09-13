@@ -17,8 +17,8 @@
 package protocols
 
 import (
+	adapters "github.com/SonicCloudOrg/sonic-ios-webkit-adapter/adapter"
 	"github.com/tidwall/gjson"
-	adapters "sonic-ios-webkit-adapter/adapter"
 )
 
 type iOS12 struct {

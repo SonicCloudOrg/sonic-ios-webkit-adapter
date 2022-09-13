@@ -17,10 +17,10 @@
 package protocols
 
 import (
+	adapters "github.com/SonicCloudOrg/sonic-ios-webkit-adapter/adapter"
 	"github.com/tidwall/gjson"
 	"github.com/tidwall/sjson"
 	"log"
-	adapters "sonic-ios-webkit-adapter/adapter"
 )
 
 type iOS8 struct {
