@@ -156,6 +156,10 @@ func (a *Adapter) SetTargetID(targetID string) {
 	a.targetID = targetID
 }
 
+func (a *Adapter) SetIsConnect(flag bool) {
+	a.isToolConnect = flag
+}
+
 // todo webkit debug ws close case
 func (a *Adapter) Connect(wsPath string, toolWs *websocket.Conn) {
 	a.wsToolServer = toolWs
@@ -164,7 +168,7 @@ func (a *Adapter) Connect(wsPath string, toolWs *websocket.Conn) {
 		log.Panic(err)
 	}
 	a.wsWebkitServer = conn
-	a.isToolConnect = true
+	a.SetIsConnect(true)
 
 	go func() {
 		for {
