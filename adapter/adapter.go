@@ -19,7 +19,6 @@ package adapters
 import (
 	"encoding/json"
 	"github.com/SonicCloudOrg/sonic-ios-webkit-adapter/entity"
-	"github.com/SonicCloudOrg/sonic-ios-webkit-adapter/protocols"
 	"github.com/gorilla/websocket"
 	"github.com/tidwall/gjson"
 	"log"
@@ -62,12 +61,12 @@ func NewAdapter(wsToolServer *websocket.Conn, version string) *Adapter {
 	adapter.sendDevTool = adapter.defaultSendDevTool
 	adapter.receiveDevTool = adapter.defaultReceiveDevTool
 
-	protocols.InitProtocolAdapter(adapter, version)
+	initProtocolAdapter(adapter, version)
 
 	return adapter
 }
 
-func (a *Adapter) AddMessageFilter(method string, filter MessageAdapters) {
+func (a *Adapter) addMessageFilter(method string, filter MessageAdapters) {
 	if a.messageFilters == nil {
 		a.messageFilters = make(map[string]MessageAdapters)
 	}

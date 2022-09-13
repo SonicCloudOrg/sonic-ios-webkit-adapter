@@ -14,7 +14,7 @@
  *  limitations under the License.
  *
  */
-package protocols
+package adapters
 
 import (
 	"github.com/tidwall/gjson"
@@ -22,16 +22,32 @@ import (
 	"log"
 )
 
-type iOS9 struct {
+type iOS8 struct {
+	adapter *Adapter
 }
 
-func initIOS9(protocol *ProtocolAdapter) {
-	result := &iOS9{}
+func initIOS8(protocol *protocolAdapter) {
+	result := &iOS8{
+		adapter: protocol.adapter,
+	}
 	protocol.init()
+	protocol.adapter.addMessageFilter("error", result.targetError)
 	protocol.mapSelectorList = result.mapSelectorList
 }
 
-func (i *iOS9) mapSelectorList(selectorList gjson.Result, message string) string {
+func (i *iOS8) targetError(message []byte) []byte {
+	params := map[string]interface{}{
+		"id":     gjson.Get(string(message), "id"),
+		"result": map[string]interface{}{},
+	}
+	msg, err := sjson.Set("", "", params)
+	if err != nil {
+		log.Panic(err)
+	}
+	return []byte(msg)
+}
+
+func (i *iOS8) mapSelectorList(selectorList gjson.Result, message string) string {
 	cssRange := selectorList.Get("range")
 	var err error
 	for _, selector := range selectorList.Get("selectors").Array() {

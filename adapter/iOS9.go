@@ -14,41 +14,24 @@
  *  limitations under the License.
  *
  */
-package protocols
+package adapters
 
 import (
-	adapters "github.com/SonicCloudOrg/sonic-ios-webkit-adapter/adapter"
 	"github.com/tidwall/gjson"
 	"github.com/tidwall/sjson"
 	"log"
 )
 
-type iOS8 struct {
-	adapter *adapters.Adapter
+type iOS9 struct {
 }
 
-func initIOS8(protocol *ProtocolAdapter) {
-	result := &iOS8{
-		adapter: protocol.adapter,
-	}
+func initIOS9(protocol *protocolAdapter) {
+	result := &iOS9{}
 	protocol.init()
-	protocol.adapter.AddMessageFilter("error", result.targetError)
 	protocol.mapSelectorList = result.mapSelectorList
 }
 
-func (i *iOS8) targetError(message []byte) []byte {
-	params := map[string]interface{}{
-		"id":     gjson.Get(string(message), "id"),
-		"result": map[string]interface{}{},
-	}
-	msg, err := sjson.Set("", "", params)
-	if err != nil {
-		log.Panic(err)
-	}
-	return []byte(msg)
-}
-
-func (i *iOS8) mapSelectorList(selectorList gjson.Result, message string) string {
+func (i *iOS9) mapSelectorList(selectorList gjson.Result, message string) string {
 	cssRange := selectorList.Get("range")
 	var err error
 	for _, selector := range selectorList.Get("selectors").Array() {

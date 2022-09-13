@@ -14,12 +14,11 @@
  *  limitations under the License.
  *
  */
-package protocols
+package adapters
 
 import (
 	"encoding/json"
 	"fmt"
-	"github.com/SonicCloudOrg/sonic-ios-webkit-adapter/adapter"
 	"github.com/SonicCloudOrg/sonic-ios-webkit-adapter/entity"
 	"github.com/tidwall/gjson"
 	"github.com/tidwall/sjson"
@@ -30,8 +29,8 @@ import (
 	"time"
 )
 
-func InitProtocolAdapter(adapter *adapters.Adapter, version string) *ProtocolAdapter {
-	protocol := &ProtocolAdapter{
+func initProtocolAdapter(adapter *Adapter, version string) *protocolAdapter {
+	protocol := &protocolAdapter{
 		adapter: adapter,
 	}
 	parts := strings.Split(version, ".")
@@ -59,8 +58,8 @@ func InitProtocolAdapter(adapter *adapters.Adapter, version string) *ProtocolAda
 
 type mapSelectorListFunc func(selectorList gjson.Result, message string) string
 
-type ProtocolAdapter struct {
-	adapter                    *adapters.Adapter
+type protocolAdapter struct {
+	adapter                    *Adapter
 	lastNodeId                 int64
 	lastPageExecutionContextId int64
 	styleMap                   map[string]interface{}
@@ -69,148 +68,148 @@ type ProtocolAdapter struct {
 	mapSelectorList            mapSelectorListFunc
 }
 
-func (p *ProtocolAdapter) init() {
+func (p *protocolAdapter) init() {
 	p.styleMap = make(map[string]interface{})
 
-	p.adapter.AddMessageFilter("DOM.getDocument", p.onDomGetDocument)
+	p.adapter.addMessageFilter("DOM.getDocument", p.onDomGetDocument)
 	// CSS
-	p.adapter.AddMessageFilter("CSS.setStyleTexts", p.onSetStyleTexts)
-	p.adapter.AddMessageFilter("CSS.getMatchedStylesForNode", p.onGetMatchedStylesForNode)
-	p.adapter.AddMessageFilter("CSS.getBackgroundColors", p.onGetBackgroundColors)
-	p.adapter.AddMessageFilter("CSS.addRule", p.onAddRule)
-	p.adapter.AddMessageFilter("CSS.getPlatformFontsForNode", p.onGetPlatformFontsForNode)
+	p.adapter.addMessageFilter("CSS.setStyleTexts", p.onSetStyleTexts)
+	p.adapter.addMessageFilter("CSS.getMatchedStylesForNode", p.onGetMatchedStylesForNode)
+	p.adapter.addMessageFilter("CSS.getBackgroundColors", p.onGetBackgroundColors)
+	p.adapter.addMessageFilter("CSS.addRule", p.onAddRule)
+	p.adapter.addMessageFilter("CSS.getPlatformFontsForNode", p.onGetPlatformFontsForNode)
 
-	p.adapter.AddMessageFilter("CSS.getMatchedStylesForNode", p.onGetMatchedStylesForNodeResult)
+	p.adapter.addMessageFilter("CSS.getMatchedStylesForNode", p.onGetMatchedStylesForNodeResult)
 	// Page
-	p.adapter.AddMessageFilter("Page.startScreencast", p.onStartScreencast)
-	p.adapter.AddMessageFilter("Page.stopScreencast", p.onStopScreencast)
-	p.adapter.AddMessageFilter("Page.screencastFrameAck", p.onScreencastFrameAck)
-	p.adapter.AddMessageFilter("Page.getNavigationHistory", p.onGetNavigationHistory)
-	p.adapter.AddMessageFilter("Page.setOverlayMessage", p.onPageSetOverlay)
-	p.adapter.AddMessageFilter("Page.configureOverlay", p.onPageConfigureOverlay)
+	p.adapter.addMessageFilter("Page.startScreencast", p.onStartScreencast)
+	p.adapter.addMessageFilter("Page.stopScreencast", p.onStopScreencast)
+	p.adapter.addMessageFilter("Page.screencastFrameAck", p.onScreencastFrameAck)
+	p.adapter.addMessageFilter("Page.getNavigationHistory", p.onGetNavigationHistory)
+	p.adapter.addMessageFilter("Page.setOverlayMessage", p.onPageSetOverlay)
+	p.adapter.addMessageFilter("Page.configureOverlay", p.onPageConfigureOverlay)
 	// DOM
-	p.adapter.AddMessageFilter("DOM.enable", p.onDomEnable)
-	p.adapter.AddMessageFilter("DOM.setInspectMode", p.onSetInspectMode)
-	p.adapter.AddMessageFilter("DOM.setInspectedNode", p.onDomSetInspectedNode)
-	p.adapter.AddMessageFilter("DOM.pushNodesByBackendIdsToFrontend", p.onPushNodesByBackendIdsToFrontend)
-	p.adapter.AddMessageFilter("DOM.getBoxModel", p.onGetBoxModel)
-	p.adapter.AddMessageFilter("DOM.getNodeForLocation", p.onGetNodeForLocation)
+	p.adapter.addMessageFilter("DOM.enable", p.onDomEnable)
+	p.adapter.addMessageFilter("DOM.setInspectMode", p.onSetInspectMode)
+	p.adapter.addMessageFilter("DOM.setInspectedNode", p.onDomSetInspectedNode)
+	p.adapter.addMessageFilter("DOM.pushNodesByBackendIdsToFrontend", p.onPushNodesByBackendIdsToFrontend)
+	p.adapter.addMessageFilter("DOM.getBoxModel", p.onGetBoxModel)
+	p.adapter.addMessageFilter("DOM.getNodeForLocation", p.onGetNodeForLocation)
 	// DOMDebugger
-	p.adapter.AddMessageFilter("DOMDebugger.getEventListeners", p.domDebuggerOnGetEventListeners)
+	p.adapter.addMessageFilter("DOMDebugger.getEventListeners", p.domDebuggerOnGetEventListeners)
 	// Debugger
-	p.adapter.AddMessageFilter("Debugger.canSetScriptSource", p.onCanSetScriptSource)
-	p.adapter.AddMessageFilter("Debugger.setBlackboxPatterns", p.onSetBlackboxPatterns)
-	p.adapter.AddMessageFilter("Debugger.setAsyncCallStackDepth", p.onSetAsyncCallStackDepth)
-	p.adapter.AddMessageFilter("Debugger.enable", p.onDebuggerEnable)
+	p.adapter.addMessageFilter("Debugger.canSetScriptSource", p.onCanSetScriptSource)
+	p.adapter.addMessageFilter("Debugger.setBlackboxPatterns", p.onSetBlackboxPatterns)
+	p.adapter.addMessageFilter("Debugger.setAsyncCallStackDepth", p.onSetAsyncCallStackDepth)
+	p.adapter.addMessageFilter("Debugger.enable", p.onDebuggerEnable)
 
-	p.adapter.AddMessageFilter("Debugger.scriptParsed", p.onScriptParsed)
+	p.adapter.addMessageFilter("Debugger.scriptParsed", p.onScriptParsed)
 	// Emulation
-	p.adapter.AddMessageFilter("Emulation.canEmulate", p.onCanEmulate)
-	p.adapter.AddMessageFilter("Emulation.setTouchEmulationEnabled", p.onEmulationSetTouchEmulationEnabled)
-	p.adapter.AddMessageFilter("Emulation.setScriptExecutionDisabled", p.onEmulationSetScriptExecutionDisabled)
-	p.adapter.AddMessageFilter("Emulation.setEmulatedMedia", p.onEmulationSetEmulatedMedia)
+	p.adapter.addMessageFilter("Emulation.canEmulate", p.onCanEmulate)
+	p.adapter.addMessageFilter("Emulation.setTouchEmulationEnabled", p.onEmulationSetTouchEmulationEnabled)
+	p.adapter.addMessageFilter("Emulation.setScriptExecutionDisabled", p.onEmulationSetScriptExecutionDisabled)
+	p.adapter.addMessageFilter("Emulation.setEmulatedMedia", p.onEmulationSetEmulatedMedia)
 	// Rendering
-	p.adapter.AddMessageFilter("Rendering.setShowPaintRects", p.onRenderingSetShowPaintRects)
+	p.adapter.addMessageFilter("Rendering.setShowPaintRects", p.onRenderingSetShowPaintRects)
 	// Input
-	p.adapter.AddMessageFilter("Input.emulateTouchFromMouseEvent", p.onEmulateTouchFromMouseEvent)
+	p.adapter.addMessageFilter("Input.emulateTouchFromMouseEvent", p.onEmulateTouchFromMouseEvent)
 	// Log
-	p.adapter.AddMessageFilter("Log.clear", p.onLogClear)
-	p.adapter.AddMessageFilter("Log.disable", p.onLogDisable)
-	p.adapter.AddMessageFilter("Log.enable", p.onLogEnable)
+	p.adapter.addMessageFilter("Log.clear", p.onLogClear)
+	p.adapter.addMessageFilter("Log.disable", p.onLogDisable)
+	p.adapter.addMessageFilter("Log.enable", p.onLogEnable)
 	// Console
-	p.adapter.AddMessageFilter("Console.messageAdded", p.onConsoleMessageAdded)
+	p.adapter.addMessageFilter("Console.messageAdded", p.onConsoleMessageAdded)
 	// Network
-	p.adapter.AddMessageFilter("Network.getCookies", p.onNetworkGetCookies)
-	p.adapter.AddMessageFilter("Network.deleteCookie", p.onNetworkDeleteCookie)
-	p.adapter.AddMessageFilter("Network.setMonitoringXHREnabled", p.onNetworkSetMonitoringXHREnabled)
-	p.adapter.AddMessageFilter("Network.canEmulateNetworkConditions", p.onCanEmulateNetworkConditions)
+	p.adapter.addMessageFilter("Network.getCookies", p.onNetworkGetCookies)
+	p.adapter.addMessageFilter("Network.deleteCookie", p.onNetworkDeleteCookie)
+	p.adapter.addMessageFilter("Network.setMonitoringXHREnabled", p.onNetworkSetMonitoringXHREnabled)
+	p.adapter.addMessageFilter("Network.canEmulateNetworkConditions", p.onCanEmulateNetworkConditions)
 	// Runtime
-	p.adapter.AddMessageFilter("Runtime.compileScript", p.onRuntimeOnCompileScript)
-	p.adapter.AddMessageFilter("Runtime.executionContextCreated", p.onExecutionContextCreated)
-	p.adapter.AddMessageFilter("Runtime.evaluate", p.onEvaluate)
-	p.adapter.AddMessageFilter("Runtime.getProperties", p.onRuntimeGetProperties)
+	p.adapter.addMessageFilter("Runtime.compileScript", p.onRuntimeOnCompileScript)
+	p.adapter.addMessageFilter("Runtime.executionContextCreated", p.onExecutionContextCreated)
+	p.adapter.addMessageFilter("Runtime.evaluate", p.onEvaluate)
+	p.adapter.addMessageFilter("Runtime.getProperties", p.onRuntimeGetProperties)
 	// Inspector
-	p.adapter.AddMessageFilter("Inspector.inspect", p.onInspect)
+	p.adapter.addMessageFilter("Inspector.inspect", p.onInspect)
 }
 
-func (p *ProtocolAdapter) defaultCallFunc(message []byte) {
+func (p *protocolAdapter) defaultCallFunc(message []byte) {
 	//log.Println(string(message))
 }
 
-func (p *ProtocolAdapter) onDomGetDocument(message []byte) []byte {
+func (p *protocolAdapter) onDomGetDocument(message []byte) []byte {
 	p.enumerateStyleSheets(message)
 	return message
 }
 
-func (p *ProtocolAdapter) onPageSetOverlay(message []byte) []byte {
+func (p *protocolAdapter) onPageSetOverlay(message []byte) []byte {
 	method := "Debugger.setOverlayMessage"
 	return ReplaceMethodNameAndOutputBinary(message, method)
 }
 
-func (p *ProtocolAdapter) onPageConfigureOverlay(message []byte) []byte {
+func (p *protocolAdapter) onPageConfigureOverlay(message []byte) []byte {
 	return p.onPageSetOverlay(message)
 }
 
-func (p *ProtocolAdapter) onDomSetInspectedNode(message []byte) []byte {
+func (p *protocolAdapter) onDomSetInspectedNode(message []byte) []byte {
 	method := "Console.addInspectedNode"
 	return ReplaceMethodNameAndOutputBinary(message, method)
 }
 
-func (p *ProtocolAdapter) onEmulationSetTouchEmulationEnabled(message []byte) []byte {
+func (p *protocolAdapter) onEmulationSetTouchEmulationEnabled(message []byte) []byte {
 	method := "Page.setTouchEmulationEnabled"
 	return ReplaceMethodNameAndOutputBinary(message, method)
 }
 
-func (p *ProtocolAdapter) onEmulationSetScriptExecutionDisabled(message []byte) []byte {
+func (p *protocolAdapter) onEmulationSetScriptExecutionDisabled(message []byte) []byte {
 	method := "Page.setScriptExecutionDisabled"
 	return ReplaceMethodNameAndOutputBinary(message, method)
 }
 
-func (p *ProtocolAdapter) onEmulationSetEmulatedMedia(message []byte) []byte {
+func (p *protocolAdapter) onEmulationSetEmulatedMedia(message []byte) []byte {
 	method := "Page.setEmulatedMedia"
 	return ReplaceMethodNameAndOutputBinary(message, method)
 }
 
-func (p *ProtocolAdapter) onRenderingSetShowPaintRects(message []byte) []byte {
+func (p *protocolAdapter) onRenderingSetShowPaintRects(message []byte) []byte {
 	method := "Page.setShowPaintRects"
 	return ReplaceMethodNameAndOutputBinary(message, method)
 }
 
-func (p *ProtocolAdapter) onLogClear(message []byte) []byte {
+func (p *protocolAdapter) onLogClear(message []byte) []byte {
 	method := "Console.clearMessages"
 	return ReplaceMethodNameAndOutputBinary(message, method)
 }
 
-func (p *ProtocolAdapter) onLogDisable(message []byte) []byte {
+func (p *protocolAdapter) onLogDisable(message []byte) []byte {
 	method := "Console.disable"
 	return ReplaceMethodNameAndOutputBinary(message, method)
 }
 
-func (p *ProtocolAdapter) onLogEnable(message []byte) []byte {
+func (p *protocolAdapter) onLogEnable(message []byte) []byte {
 	method := "Console.enable"
 	return ReplaceMethodNameAndOutputBinary(message, method)
 }
-func (p *ProtocolAdapter) onNetworkGetCookies(message []byte) []byte {
+func (p *protocolAdapter) onNetworkGetCookies(message []byte) []byte {
 	method := "Page.getCookies"
 	return ReplaceMethodNameAndOutputBinary(message, method)
 }
 
-func (p *ProtocolAdapter) onNetworkDeleteCookie(message []byte) []byte {
+func (p *protocolAdapter) onNetworkDeleteCookie(message []byte) []byte {
 	method := "Page.deleteCookie"
 	return ReplaceMethodNameAndOutputBinary(message, method)
 }
 
-func (p *ProtocolAdapter) onNetworkSetMonitoringXHREnabled(message []byte) []byte {
+func (p *protocolAdapter) onNetworkSetMonitoringXHREnabled(message []byte) []byte {
 	method := "Console.setMonitoringXHREnabled"
 	return ReplaceMethodNameAndOutputBinary(message, method)
 }
 
-func (p *ProtocolAdapter) onGetMatchedStylesForNode(message []byte) []byte {
+func (p *protocolAdapter) onGetMatchedStylesForNode(message []byte) []byte {
 	p.lastNodeId = gjson.Get(string(message), "params.nodeId").Int()
 	return message
 }
 
-func (p *ProtocolAdapter) onCanEmulate(message []byte) []byte {
+func (p *protocolAdapter) onCanEmulate(message []byte) []byte {
 	result := map[string]interface{}{
 		"result": true,
 	}
@@ -218,7 +217,7 @@ func (p *ProtocolAdapter) onCanEmulate(message []byte) []byte {
 	return nil
 }
 
-func (p *ProtocolAdapter) onGetPlatformFontsForNode(message []byte) []byte {
+func (p *protocolAdapter) onGetPlatformFontsForNode(message []byte) []byte {
 	result := map[string]interface{}{
 		"fonts": []string{},
 	}
@@ -226,7 +225,7 @@ func (p *ProtocolAdapter) onGetPlatformFontsForNode(message []byte) []byte {
 	return nil
 }
 
-func (p *ProtocolAdapter) onGetBackgroundColors(message []byte) []byte {
+func (p *protocolAdapter) onGetBackgroundColors(message []byte) []byte {
 	result := map[string]interface{}{
 		"backgroundColors": []string{},
 	}
@@ -234,7 +233,7 @@ func (p *ProtocolAdapter) onGetBackgroundColors(message []byte) []byte {
 	return nil
 }
 
-func (p *ProtocolAdapter) onCanSetScriptSource(message []byte) []byte {
+func (p *protocolAdapter) onCanSetScriptSource(message []byte) []byte {
 	result := map[string]interface{}{
 		"result": false,
 	}
@@ -242,13 +241,13 @@ func (p *ProtocolAdapter) onCanSetScriptSource(message []byte) []byte {
 	return nil
 }
 
-func (p *ProtocolAdapter) onSetBlackboxPatterns(message []byte) []byte {
+func (p *protocolAdapter) onSetBlackboxPatterns(message []byte) []byte {
 	result := map[string]interface{}{}
 	p.adapter.FireResultToTools(int(gjson.Get(string(message), "id").Int()), result)
 	return nil
 }
 
-func (p *ProtocolAdapter) onSetAsyncCallStackDepth(message []byte) []byte {
+func (p *protocolAdapter) onSetAsyncCallStackDepth(message []byte) []byte {
 	result := map[string]interface{}{
 		"result": true,
 	}
@@ -256,14 +255,14 @@ func (p *ProtocolAdapter) onSetAsyncCallStackDepth(message []byte) []byte {
 	return nil
 }
 
-func (p *ProtocolAdapter) onDebuggerEnable(message []byte) []byte {
+func (p *protocolAdapter) onDebuggerEnable(message []byte) []byte {
 	p.adapter.CallTarget("Debugger.setBreakpointsActive", map[string]interface{}{
 		"active": true,
 	}, p.defaultCallFunc)
 	return message
 }
 
-func (p *ProtocolAdapter) onExecutionContextCreated(message []byte) []byte {
+func (p *protocolAdapter) onExecutionContextCreated(message []byte) []byte {
 	msg := string(message)
 	var err error
 	if gjson.Get(msg, "params").Exists() && gjson.Get(msg, "params.context").Exists() {
@@ -294,7 +293,7 @@ func (p *ProtocolAdapter) onExecutionContextCreated(message []byte) []byte {
 	return []byte(msg)
 }
 
-func (p *ProtocolAdapter) onEvaluate(message []byte) []byte {
+func (p *protocolAdapter) onEvaluate(message []byte) []byte {
 	msg := string(message)
 	var err error
 	result := gjson.Get(msg, "result")
@@ -341,7 +340,7 @@ func (p *ProtocolAdapter) onEvaluate(message []byte) []byte {
 	return []byte(msg)
 }
 
-func (p *ProtocolAdapter) onRuntimeOnCompileScript(message []byte) []byte {
+func (p *protocolAdapter) onRuntimeOnCompileScript(message []byte) []byte {
 	params := map[string]interface{}{
 		"expression": gjson.Get(string(message), "params.expression").String(),
 		"contextId":  gjson.Get(string(message), "params.executionContextId").Int(),
@@ -356,7 +355,7 @@ func (p *ProtocolAdapter) onRuntimeOnCompileScript(message []byte) []byte {
 	return nil
 }
 
-func (p *ProtocolAdapter) onRuntimeGetProperties(message []byte) []byte {
+func (p *protocolAdapter) onRuntimeGetProperties(message []byte) []byte {
 	var newPropertyDescriptors []interface{}
 	var err error
 	msg := string(message)
@@ -378,17 +377,17 @@ func (p *ProtocolAdapter) onRuntimeGetProperties(message []byte) []byte {
 	return []byte(msg)
 }
 
-func (p *ProtocolAdapter) onScriptParsed(message []byte) []byte {
+func (p *protocolAdapter) onScriptParsed(message []byte) []byte {
 	p.lastScriptEval = gjson.Get(string(message), "params.scriptId")
 	return message
 }
 
-func (p *ProtocolAdapter) onDomEnable(message []byte) []byte {
+func (p *protocolAdapter) onDomEnable(message []byte) []byte {
 	p.adapter.FireResultToTools(int(gjson.Get(string(message), "id").Int()), map[string]interface{}{})
 	return nil
 }
 
-func (p *ProtocolAdapter) onSetInspectMode(message []byte) []byte {
+func (p *protocolAdapter) onSetInspectMode(message []byte) []byte {
 	msg := string(message)
 	var err error
 	msg, err = sjson.Set(msg, "method", "DOM.setInspectModeEnabled")
@@ -407,7 +406,7 @@ func (p *ProtocolAdapter) onSetInspectMode(message []byte) []byte {
 	return []byte(msg)
 }
 
-func (p *ProtocolAdapter) onInspect(message []byte) []byte {
+func (p *protocolAdapter) onInspect(message []byte) []byte {
 	msg := string(message)
 	var err error
 	msg, err = sjson.Set(msg, "method", "DOM.inspectNodeRequested")
@@ -429,7 +428,7 @@ func (p *ProtocolAdapter) onInspect(message []byte) []byte {
 	return []byte(msg)
 }
 
-func (p *ProtocolAdapter) domDebuggerOnGetEventListeners(message []byte) []byte {
+func (p *protocolAdapter) domDebuggerOnGetEventListeners(message []byte) []byte {
 	requestNodeParams := map[string]interface{}{
 		"objectId": gjson.Get(string(message), "params.objectId").Value(),
 	}
@@ -459,7 +458,7 @@ func (p *ProtocolAdapter) domDebuggerOnGetEventListeners(message []byte) []byte 
 	return nil
 }
 
-func (p *ProtocolAdapter) onPushNodesByBackendIdsToFrontend(message []byte) []byte {
+func (p *protocolAdapter) onPushNodesByBackendIdsToFrontend(message []byte) []byte {
 	id := gjson.Get(string(message), "id").Int()
 	var resultBackNodeIds []interface{}
 	for _, backNode := range gjson.Get(string(message), "params.backendNodeIds").Array() {
@@ -477,7 +476,7 @@ func (p *ProtocolAdapter) onPushNodesByBackendIdsToFrontend(message []byte) []by
 	return nil
 }
 
-func (p *ProtocolAdapter) onGetBoxModel(message []byte) []byte {
+func (p *protocolAdapter) onGetBoxModel(message []byte) []byte {
 	params := map[string]interface{}{
 		"highlightConfig": map[string]interface{}{
 			"showInfo":           true,
@@ -500,7 +499,7 @@ func (p *ProtocolAdapter) onGetBoxModel(message []byte) []byte {
 	return nil
 }
 
-func (p *ProtocolAdapter) onGetNodeForLocation(message []byte) []byte {
+func (p *protocolAdapter) onGetNodeForLocation(message []byte) []byte {
 	evaluateParams := map[string]interface{}{
 		"expression": fmt.Sprintf("document.elementFromPoint(%d,%d)", gjson.Get(string(message), "params.x").Int(), gjson.Get(string(message), "params.y").Int()),
 	}
@@ -519,7 +518,7 @@ func (p *ProtocolAdapter) onGetNodeForLocation(message []byte) []byte {
 }
 
 // todo screencast
-func (p *ProtocolAdapter) onStartScreencast(message []byte) []byte {
+func (p *protocolAdapter) onStartScreencast(message []byte) []byte {
 	params := gjson.Get(string(message), "params")
 	format := params.Get("format").String()
 	quality := params.Get("quality").Int()
@@ -541,7 +540,7 @@ func (p *ProtocolAdapter) onStartScreencast(message []byte) []byte {
 	return nil
 }
 
-func (p *ProtocolAdapter) onStopScreencast(message []byte) []byte {
+func (p *protocolAdapter) onStopScreencast(message []byte) []byte {
 	if p.screencast != nil {
 		// clear previous session
 		p.screencast.stop()
@@ -552,7 +551,7 @@ func (p *ProtocolAdapter) onStopScreencast(message []byte) []byte {
 	return nil
 }
 
-func (p *ProtocolAdapter) onScreencastFrameAck(message []byte) []byte {
+func (p *protocolAdapter) onScreencastFrameAck(message []byte) []byte {
 	if p.screencast != nil {
 		frameNumber := gjson.Get(string(message), "params.sessionId").Int()
 		// todo Change to int 64?
@@ -563,7 +562,7 @@ func (p *ProtocolAdapter) onScreencastFrameAck(message []byte) []byte {
 	return nil
 }
 
-func (p *ProtocolAdapter) onGetNavigationHistory(message []byte) []byte {
+func (p *protocolAdapter) onGetNavigationHistory(message []byte) []byte {
 	var href string
 	var id = int(gjson.Get(string(message), "id").Int())
 	p.adapter.CallTarget("Runtime.evaluate", map[string]interface{}{"expression": "window.location.href"}, func(result []byte) {
@@ -584,7 +583,7 @@ func (p *ProtocolAdapter) onGetNavigationHistory(message []byte) []byte {
 	return nil
 }
 
-func (p *ProtocolAdapter) onEmulateTouchFromMouseEvent(message []byte) []byte {
+func (p *protocolAdapter) onEmulateTouchFromMouseEvent(message []byte) []byte {
 	var funcStr = `function simulate(params) {
                 const element = document.elementFromPoint(params.x, params.y);
                 const e = new MouseEvent(params.type, {
@@ -647,7 +646,7 @@ func (p *ProtocolAdapter) onEmulateTouchFromMouseEvent(message []byte) []byte {
 	return p.adapter.ReplyWithEmpty(msg)
 }
 
-func (p *ProtocolAdapter) onCanEmulateNetworkConditions(message []byte) []byte {
+func (p *protocolAdapter) onCanEmulateNetworkConditions(message []byte) []byte {
 	result := map[string]interface{}{
 		"result": false,
 	}
@@ -655,7 +654,7 @@ func (p *ProtocolAdapter) onCanEmulateNetworkConditions(message []byte) []byte {
 	return nil
 }
 
-func (p *ProtocolAdapter) onConsoleMessageAdded(message []byte) []byte {
+func (p *protocolAdapter) onConsoleMessageAdded(message []byte) []byte {
 	resultMessage := gjson.Get(string(message), "params.message")
 	messageType := resultMessage.Get("type").String()
 	var resultType string
@@ -693,7 +692,7 @@ func (p *ProtocolAdapter) onConsoleMessageAdded(message []byte) []byte {
 	return nil
 }
 
-func (p *ProtocolAdapter) enumerateStyleSheets(message []byte) []byte {
+func (p *protocolAdapter) enumerateStyleSheets(message []byte) []byte {
 	p.adapter.CallTarget("CSS.getAllStyleSheets", map[string]interface{}{}, func(message []byte) {
 		msg := string(message)
 		var err error
@@ -721,7 +720,7 @@ func (p *ProtocolAdapter) enumerateStyleSheets(message []byte) []byte {
 	return nil
 }
 
-func (p *ProtocolAdapter) onAddRule(message []byte) []byte {
+func (p *protocolAdapter) onAddRule(message []byte) []byte {
 	var selector = gjson.Get(string(message), "params.ruleText").String()
 	selector = strings.TrimSpace(selector)
 	selector = strings.Replace(selector, "{}", "", -1)
@@ -742,7 +741,7 @@ func (p *ProtocolAdapter) onAddRule(message []byte) []byte {
 	return nil
 }
 
-func (p *ProtocolAdapter) mapRule(cssRule gjson.Result, message string) string {
+func (p *protocolAdapter) mapRule(cssRule gjson.Result, message string) string {
 	var err error
 	if cssRule.Get("ruleId").Exists() {
 		path := cssRule.Get("styleSheetId").Path(message)
@@ -768,7 +767,7 @@ func (p *ProtocolAdapter) mapRule(cssRule gjson.Result, message string) string {
 	return message
 }
 
-func (p *ProtocolAdapter) onGetMatchedStylesForNodeResult(message []byte) []byte {
+func (p *protocolAdapter) onGetMatchedStylesForNodeResult(message []byte) []byte {
 	msg := string(message)
 	result := gjson.Get(msg, "result")
 	if result.Exists() {
@@ -787,7 +786,7 @@ func (p *ProtocolAdapter) onGetMatchedStylesForNodeResult(message []byte) []byte
 }
 
 // onSetStyleTexts todo KeyCheck
-func (p *ProtocolAdapter) onSetStyleTexts(message []byte) []byte {
+func (p *protocolAdapter) onSetStyleTexts(message []byte) []byte {
 	var msg = string(message)
 	var allStyleText []interface{}
 	resultId := gjson.Get(msg, "id").Int()
@@ -834,7 +833,7 @@ func (p *ProtocolAdapter) onSetStyleTexts(message []byte) []byte {
 	return nil
 }
 
-func (p *ProtocolAdapter) mapStyle(cssStyle gjson.Result, ruleOrigin string, message string) string {
+func (p *protocolAdapter) mapStyle(cssStyle gjson.Result, ruleOrigin string, message string) string {
 	var err error
 	if cssStyle.Get("cssText").Exists() {
 		disabled := p.extractDisabledStyles(cssStyle.Get("cssText").String(), cssStyle.Get("range"))
@@ -942,7 +941,7 @@ func (p *ProtocolAdapter) mapStyle(cssStyle gjson.Result, ruleOrigin string, mes
 	return message
 }
 
-func (p *ProtocolAdapter) mapCssProperty(cssProperty gjson.Result, message string) string {
+func (p *protocolAdapter) mapCssProperty(cssProperty gjson.Result, message string) string {
 	var err error
 	path := cssProperty.Get("status.disabled").Path(message)
 	if cssProperty.Get("status").String() == "disabled" {
@@ -982,7 +981,7 @@ func (p *ProtocolAdapter) mapCssProperty(cssProperty gjson.Result, message strin
 }
 
 // extractDisabledStyles todo KeyCheck
-func (p *ProtocolAdapter) extractDisabledStyles(styleText string, cssRange gjson.Result) []entity.IDisabledStyle {
+func (p *protocolAdapter) extractDisabledStyles(styleText string, cssRange gjson.Result) []entity.IDisabledStyle {
 	var startIndices []int
 	var styles []entity.IDisabledStyle
 	for index, _ := range styleText {
@@ -1022,7 +1021,7 @@ func (p *ProtocolAdapter) extractDisabledStyles(styleText string, cssRange gjson
 }
 
 // todo KeyCheck
-func (p *ProtocolAdapter) getLineColumnFromIndex(text string, index int, startRange gjson.Result) (line int, column int) {
+func (p *protocolAdapter) getLineColumnFromIndex(text string, index int, startRange gjson.Result) (line int, column int) {
 	if text == "" || index < 0 || index > len(text) {
 		return 0, 0
 	}

@@ -14,24 +14,23 @@
  *  limitations under the License.
  *
  */
-package protocols
+package adapters
 
 import (
-	adapters "github.com/SonicCloudOrg/sonic-ios-webkit-adapter/adapter"
 	"github.com/tidwall/gjson"
 )
 
 type iOS12 struct {
-	adapter *adapters.Adapter
+	adapter *Adapter
 }
 
-func initIOS12(protocol *ProtocolAdapter) {
+func initIOS12(protocol *protocolAdapter) {
 	protocol.adapter.SetTargetBased(true)
 	result := &iOS12{
 		adapter: protocol.adapter,
 	}
 	protocol.init()
-	protocol.adapter.AddMessageFilter("Target.targetCreated", result.targetCreated)
+	protocol.adapter.addMessageFilter("Target.targetCreated", result.targetCreated)
 }
 
 func (i *iOS12) targetCreated(message []byte) []byte {

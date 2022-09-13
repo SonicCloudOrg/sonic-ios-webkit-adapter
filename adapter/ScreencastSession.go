@@ -14,10 +14,9 @@
  *  limitations under the License.
  *
  */
-package protocols
+package adapters
 
 import (
-	adapters "github.com/SonicCloudOrg/sonic-ios-webkit-adapter/adapter"
 	"github.com/tidwall/gjson"
 	"log"
 	"strconv"
@@ -26,7 +25,7 @@ import (
 )
 
 type screencastSession struct {
-	adapter         *adapters.Adapter
+	adapter         *Adapter
 	frameId         int
 	framesAcked     []bool
 	frameInterval   time.Duration // default 250, 60 fps is 16ms
@@ -44,7 +43,7 @@ type screencastSession struct {
 	closeFlag       chan bool
 }
 
-func newScreencastSession(adapter *adapters.Adapter, optFuncs ...ScreencastOptFunc) *screencastSession {
+func newScreencastSession(adapter *Adapter, optFuncs ...ScreencastOptFunc) *screencastSession {
 	screencast := &screencastSession{
 		adapter:   adapter,
 		quality:   100,
