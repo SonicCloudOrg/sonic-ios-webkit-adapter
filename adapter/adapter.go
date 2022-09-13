@@ -19,6 +19,7 @@ package adapters
 import (
 	"encoding/json"
 	"github.com/SonicCloudOrg/sonic-ios-webkit-adapter/entity"
+	"github.com/SonicCloudOrg/sonic-ios-webkit-adapter/protocols"
 	"github.com/gorilla/websocket"
 	"github.com/tidwall/gjson"
 	"log"
@@ -48,6 +49,22 @@ type Adapter struct {
 	receiveWebKit func([]byte)
 	// recv for devtool
 	receiveDevTool func([]byte)
+}
+
+func NewAdapter(wsToolServer *websocket.Conn, version string) *Adapter {
+	adapter := &Adapter{
+		messageFilters:    make(map[string]MessageAdapters),
+		toolRequestMap:    make(map[int64]string),
+		adapterRequestMap: make(map[int64]func(message []byte)),
+	}
+	adapter.sendWebkit = adapter.defaultSendWebkit
+	adapter.receiveWebKit = adapter.defaultReceiveWebkit
+	adapter.sendDevTool = adapter.defaultSendDevTool
+	adapter.receiveDevTool = adapter.defaultReceiveDevTool
+
+	protocols.InitProtocolAdapter(adapter, version)
+
+	return adapter
 }
 
 func (a *Adapter) AddMessageFilter(method string, filter MessageAdapters) {

@@ -30,7 +30,7 @@ import (
 	"time"
 )
 
-func NewProtocolAdapter(adapter *adapters.Adapter, version string) *ProtocolAdapter {
+func InitProtocolAdapter(adapter *adapters.Adapter, version string) *ProtocolAdapter {
 	protocol := &ProtocolAdapter{
 		adapter: adapter,
 	}
