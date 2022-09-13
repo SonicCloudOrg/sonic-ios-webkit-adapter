@@ -188,6 +188,22 @@ func (a *Adapter) Connect(wsPath string, toolWs *websocket.Conn) {
 	a.messageBuffer = [][]byte{}
 }
 
+func (a *Adapter) SendMessageWebkit(message []byte) {
+	a.sendWebkit(message)
+}
+
+func (a *Adapter) ReceiveMessageWebkit(message []byte) {
+	a.receiveWebKit(message)
+}
+
+func (a *Adapter) SendMessageDevTool(message []byte) {
+	a.sendDevTool(message)
+}
+
+func (a *Adapter) ReceiveMessageDevTool(message []byte) {
+	a.receiveDevTool(message)
+}
+
 func (a *Adapter) defaultSendWebkit(message []byte) {
 	if message == nil {
 		return
