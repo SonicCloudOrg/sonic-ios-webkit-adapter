@@ -17,9 +17,10 @@
 package entity
 
 type TargetProtocol struct {
-	ID     int         `json:"id"`
-	Method string      `json:"method"`
-	Params interface{} `json:"params,omitempty"`
+	ID       int         `json:"id"`
+	Method   string      `json:"method"`
+	Params   interface{} `json:"params,omitempty"`
+	TargetId string      `json:"targetId,omitempty"`
 }
 
 type TargetParams struct {

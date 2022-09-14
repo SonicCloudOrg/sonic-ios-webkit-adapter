@@ -221,7 +221,7 @@ func (a *Adapter) defaultReceiveWebkit(message []byte) {
 	msg := string(message)
 	if a.isTargetBased {
 		method := gjson.Get(msg, "method")
-		if method.Exists() || strings.Index(method.String(), "Target") != 0 {
+		if !method.Exists() || !strings.Contains(method.String(), "Target") {
 			return
 		}
 		if method.String() == "Target.dispatchMessageFromTarget" {
