@@ -29,8 +29,9 @@ func initIOS12(protocol *protocolAdapter) {
 	result := &iOS12{
 		adapter: protocol.adapter,
 	}
-	protocol.init()
+	//protocol.init()
 	protocol.adapter.addMessageFilter("Target.targetCreated", result.targetCreated)
+	initIOS9(protocol)
 }
 
 func (i *iOS12) targetCreated(message []byte) []byte {

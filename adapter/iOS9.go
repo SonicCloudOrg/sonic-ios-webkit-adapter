@@ -34,20 +34,22 @@ func initIOS9(protocol *protocolAdapter) {
 func (i *iOS9) mapSelectorList(selectorList gjson.Result, message string) string {
 	cssRange := selectorList.Get("range")
 	var err error
+	var newMsg = message
+	var oldMsg = message
 	for _, selector := range selectorList.Get("selectors").Array() {
-		message, err = sjson.Set(message, selector.Path(message), map[string]interface{}{
+		newMsg, err = sjson.Set(newMsg, selector.Path(oldMsg), map[string]interface{}{
 			"text": selector.Value(),
 		})
 		if cssRange.Exists() {
-			message, err = sjson.Set(message, selector.Get("range").Path(message), cssRange.Value())
+			newMsg, err = sjson.Set(newMsg, selector.Get("range").Path(oldMsg), cssRange.Value())
 		}
 		if err != nil {
 			log.Panic(err)
 		}
 	}
-	message, err = sjson.Delete(message, cssRange.Path(message))
+	newMsg, err = sjson.Delete(newMsg, cssRange.Path(oldMsg))
 	if err != nil {
 		log.Panic(err)
 	}
-	return message
+	return newMsg
 }
