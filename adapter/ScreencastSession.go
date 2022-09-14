@@ -118,7 +118,7 @@ func (s *screencastSession) ackFrame(frameNumber int) {
 
 func (s *screencastSession) recordingLoop() {
 	currentFrame := s.frameId
-	if currentFrame > 1 && !s.framesAcked[currentFrame-1] {
+	if currentFrame > 1 && (currentFrame >= len(s.framesAcked) || !s.framesAcked[currentFrame-1]) {
 		return
 	}
 	s.frameId++
