@@ -1060,7 +1060,7 @@ func ReplaceMethodNameAndOutputBinary(message []byte, method string) []byte {
 	// todo Regular?
 	msg["method"] = method
 
-	arr, err1 := json.Marshal(message)
+	arr, err1 := json.Marshal(msg)
 	if err1 != nil {
 		log.Panic(err1)
 	}
