@@ -229,7 +229,7 @@ func (a *Adapter) defaultReceiveWebkit(message []byte) {
 		}
 	}
 	// id exists in the message
-	if strings.Contains(msg, "id") {
+	if gjson.Get(msg, "id").Exists() {
 		id := gjson.Get(msg, "id").Int()
 		if a.toolRequestMap[id] != "" {
 			var eventName = a.toolRequestMap[id]
