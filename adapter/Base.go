@@ -734,23 +734,21 @@ func (p *protocolAdapter) onAddRule(message []byte) []byte {
 		"selector":      selector,
 	}
 	p.adapter.CallTarget("CSS.addRule", params, func(message []byte) {
-		var msg = string(message)
+		var newMsg = string(message)
 		var oldMsg = string(message)
 		var param interface{}
 		err := json.Unmarshal(message, param)
 		if err != nil {
 			log.Panic(err)
 		}
-		msg = p.mapRule(gjson.Get(msg, "rule"), oldMsg)
-		p.adapter.FireResultToTools(int(gjson.Get(msg, "id").Int()), param)
+		newMsg = p.mapRule(gjson.Get(newMsg, "rule"), newMsg, oldMsg)
+		p.adapter.FireResultToTools(int(gjson.Get(newMsg, "id").Int()), param)
 	})
 	return nil
 }
 
-func (p *protocolAdapter) mapRule(cssRule gjson.Result, message string) string {
+func (p *protocolAdapter) mapRule(cssRule gjson.Result, newMsg string, oldMsg string) string {
 	var err error
-	var newMsg = message
-	var oldMsg = message
 	if cssRule.Get("ruleId").Exists() {
 		path := cssRule.Get("styleSheetId").Path(oldMsg)
 		newMsg, err = sjson.Set(newMsg, path, cssRule.Get("ruleId.styleSheetId").Value())
@@ -764,7 +762,7 @@ func (p *protocolAdapter) mapRule(cssRule gjson.Result, message string) string {
 		// todo
 		newMsg = p.mapSelectorList(cssRule.Get("selectorList"), oldMsg)
 
-		newMsg = p.mapStyle(cssRule.Get("style"), cssRule.Get("origin").String(), oldMsg)
+		newMsg = p.mapStyle(cssRule.Get("style"), cssRule.Get("origin").String(), newMsg, oldMsg)
 
 		path = cssRule.Get("sourceLine").Path(oldMsg)
 		newMsg, err = sjson.Delete(newMsg, path)
@@ -776,22 +774,22 @@ func (p *protocolAdapter) mapRule(cssRule gjson.Result, message string) string {
 }
 
 func (p *protocolAdapter) onGetMatchedStylesForNodeResult(message []byte) []byte {
-	msg := string(message)
+	newMsg := string(message)
 	oldMsg := string(message)
-	result := gjson.Get(msg, "result")
+	result := gjson.Get(newMsg, "result")
 	if result.Exists() {
 		for _, matchedCSSRule := range result.Get("matchedCSSRules").Array() {
-			msg = p.mapRule(matchedCSSRule.Get("rule"), oldMsg)
+			newMsg = p.mapRule(matchedCSSRule.Get("rule"), newMsg, oldMsg)
 		}
 		for _, inherited := range result.Get("inherited").Array() {
 			if inherited.Get("matchedCSSRules").Exists() {
 				for _, matchedCSSRule := range result.Get("matchedCSSRules").Array() {
-					msg = p.mapRule(matchedCSSRule.Get("rule"), oldMsg)
+					newMsg = p.mapRule(matchedCSSRule.Get("rule"), newMsg, oldMsg)
 				}
 			}
 		}
 	}
-	return []byte(msg)
+	return []byte(newMsg)
 }
 
 // onSetStyleTexts todo KeyCheck
@@ -826,7 +824,7 @@ func (p *protocolAdapter) onSetStyleTexts(message []byte) []byte {
 						"text": edit.Get("text").String(),
 					}
 					p.adapter.CallTarget("CSS.setStyleText", params, func(setStyleResult []byte) {
-						mapStyleResult := p.mapStyle(gjson.Get(string(setStyleResult), "style"), "", string(setStyleResult))
+						mapStyleResult := p.mapStyle(gjson.Get(string(setStyleResult), "style"), "", string(setStyleResult), string(setStyleResult))
 						allStyleText = append(allStyleText, gjson.Get(mapStyleResult, "style").Value())
 						// stop for
 						whetherToContinueTheCycle = false
@@ -842,10 +840,8 @@ func (p *protocolAdapter) onSetStyleTexts(message []byte) []byte {
 	return nil
 }
 
-func (p *protocolAdapter) mapStyle(cssStyle gjson.Result, ruleOrigin string, message string) string {
+func (p *protocolAdapter) mapStyle(cssStyle gjson.Result, ruleOrigin string, newMsg string, oldMsg string) string {
 	var err error
-	var newMsg = message
-	var oldMsg = message
 	if cssStyle.Get("cssText").Exists() {
 		disabled := p.extractDisabledStyles(cssStyle.Get("cssText").String(), cssStyle.Get("range"))
 		for i, value := range disabled {
@@ -922,32 +918,33 @@ func (p *protocolAdapter) mapStyle(cssStyle gjson.Result, ruleOrigin string, mes
 
 		}
 		p.styleMap[styleKey] = cssStyle.Get("styleId.styleSheetId").String()
-		// delete
-		path = cssStyle.Get("styleId").Path(oldMsg)
-		newMsg, err = sjson.Delete(newMsg, path)
-		if err != nil {
-			log.Panic(err)
-		}
-		path = cssStyle.Get("sourceLine").Path(oldMsg)
-		newMsg, err = sjson.Delete(newMsg, path)
-		if err != nil {
-			log.Panic(err)
-		}
-		path = cssStyle.Get("sourceURL").Path(oldMsg)
-		newMsg, err = sjson.Delete(newMsg, path)
-		if err != nil {
-			log.Panic(err)
-		}
-		path = cssStyle.Get("width").Path(oldMsg)
-		newMsg, err = sjson.Delete(newMsg, path)
-		if err != nil {
-			log.Panic(err)
-		}
-		path = cssStyle.Get("height").Path(oldMsg)
-		newMsg, err = sjson.Delete(newMsg, path)
-		if err != nil {
-			log.Panic(err)
-		}
+
+	}
+	// delete
+	path := cssStyle.Get("styleId").Path(oldMsg)
+	newMsg, err = sjson.Delete(newMsg, path)
+	if err != nil {
+		log.Panic(err)
+	}
+	path = cssStyle.Get("sourceLine").Path(oldMsg)
+	newMsg, err = sjson.Delete(newMsg, path)
+	if err != nil {
+		log.Panic(err)
+	}
+	path = cssStyle.Get("sourceURL").Path(oldMsg)
+	newMsg, err = sjson.Delete(newMsg, path)
+	if err != nil {
+		log.Panic(err)
+	}
+	path = cssStyle.Get("width").Path(oldMsg)
+	newMsg, err = sjson.Delete(newMsg, path)
+	if err != nil {
+		log.Panic(err)
+	}
+	path = cssStyle.Get("height").Path(oldMsg)
+	newMsg, err = sjson.Delete(newMsg, path)
+	if err != nil {
+		log.Panic(err)
 	}
 	return newMsg
 }
