@@ -23,20 +23,88 @@ import (
 	"github.com/tidwall/gjson"
 	"log"
 	"strings"
+	"sync"
 )
 
 type MessageAdapters func(message []byte) []byte
 
+// todo OptimizationFocus
+type toolRequestSyncMap struct {
+	toolRequestMap sync.Map
+}
+
+// todo generics
+func (t *toolRequestSyncMap) put(key int64, value string) {
+	t.toolRequestMap.Store(key, value)
+}
+
+func (t *toolRequestSyncMap) delete(key int64) {
+	t.toolRequestMap.Delete(key)
+}
+
+func (t *toolRequestSyncMap) get(key int64) string {
+	if value, ok := t.toolRequestMap.Load(key); ok {
+		result, _ := value.(string)
+		return result
+	} else {
+		return ""
+	}
+}
+
+type adapterRequestSyncMap struct {
+	adapterRequestMap sync.Map
+}
+
+// todo generics
+func (t *adapterRequestSyncMap) put(key int64, value func(message []byte)) {
+	t.adapterRequestMap.Store(key, value)
+}
+
+func (t *adapterRequestSyncMap) delete(key int64) {
+	t.adapterRequestMap.Delete(key)
+}
+
+func (t *adapterRequestSyncMap) get(key int64) func(message []byte) {
+	if value, ok := t.adapterRequestMap.Load(key); ok {
+		result, _ := value.(func(message []byte))
+		return result
+	} else {
+		return nil
+	}
+}
+
+type messageFiltersSyncMap struct {
+	messageFilters sync.Map
+}
+
+// todo generics
+func (t *messageFiltersSyncMap) put(key string, value MessageAdapters) {
+	t.messageFilters.Store(key, value)
+}
+
+func (t *messageFiltersSyncMap) delete(key string) {
+	t.messageFilters.Delete(key)
+}
+
+func (t *messageFiltersSyncMap) get(key string) MessageAdapters {
+	if value, ok := t.messageFilters.Load(key); ok {
+		result, _ := value.(MessageAdapters)
+		return result
+	} else {
+		return nil
+	}
+}
+
 type Adapter struct {
 	targetID          string
-	messageFilters    map[string]MessageAdapters
+	messageFilters    messageFiltersSyncMap
 	messageBuffer     [][]byte
 	isTargetBased     bool
 	applicationID     *string
 	pageID            *int
 	waitingForID      int
-	toolRequestMap    map[int64]string
-	adapterRequestMap map[int64]func(message []byte)
+	toolRequestMap    toolRequestSyncMap
+	adapterRequestMap adapterRequestSyncMap
 	wsToolServer      *websocket.Conn
 	wsWebkitServer    *websocket.Conn
 	isToolConnect     bool
@@ -52,9 +120,7 @@ type Adapter struct {
 
 func NewAdapter(wsToolServer *websocket.Conn, version string) *Adapter {
 	adapter := &Adapter{
-		messageFilters:    make(map[string]MessageAdapters),
-		toolRequestMap:    make(map[int64]string),
-		adapterRequestMap: make(map[int64]func(message []byte)),
+		wsToolServer: wsToolServer,
 	}
 	adapter.sendWebkit = adapter.defaultSendWebkit
 	adapter.receiveWebKit = adapter.defaultReceiveWebkit
@@ -67,10 +133,7 @@ func NewAdapter(wsToolServer *websocket.Conn, version string) *Adapter {
 }
 
 func (a *Adapter) addMessageFilter(method string, filter MessageAdapters) {
-	if a.messageFilters == nil {
-		a.messageFilters = make(map[string]MessageAdapters)
-	}
-	a.messageFilters[method] = filter
+	a.messageFilters.put(method, filter)
 }
 
 func (a *Adapter) CallTarget(method string, params interface{}, callFunc func(message []byte)) {
@@ -85,7 +148,7 @@ func (a *Adapter) CallTarget(method string, params interface{}, callFunc func(me
 	message.Method = method
 	message.Params = params
 	if callFunc != nil {
-		a.adapterRequestMap[int64(a.waitingForID)] = callFunc
+		a.adapterRequestMap.put(int64(a.waitingForID), callFunc)
 	}
 	a.sendToTarget(message)
 }
@@ -231,23 +294,25 @@ func (a *Adapter) defaultReceiveWebkit(message []byte) {
 	// id exists in the message
 	if gjson.Get(msg, "id").Exists() {
 		id := gjson.Get(msg, "id").Int()
-		if a.toolRequestMap[id] != "" {
-			var eventName = a.toolRequestMap[id]
-			if strings.Contains(msg, "err") && a.messageFilters["error"] != nil {
+		if a.toolRequestMap.get(id) != "" {
+			var eventName = a.toolRequestMap.get(id)
+			if strings.Contains(msg, "err") && a.messageFilters.get("error") != nil {
 				eventName = "error"
 			}
 
-			if a.messageFilters[eventName] != nil {
-				rawMessage := a.messageFilters[eventName]([]byte(msg))
+			a.toolRequestMap.delete(id)
+
+			if a.messageFilters.get(eventName) != nil {
+				rawMessage := a.messageFilters.get(eventName)([]byte(msg))
 				if rawMessage != nil {
 					a.sendDevTool(rawMessage)
 				}
 			} else {
 				a.sendDevTool([]byte(msg))
 			}
-		} else if a.adapterRequestMap[id] != nil {
-			adapterFunc := a.adapterRequestMap[id]
-			delete(a.adapterRequestMap, id)
+		} else if a.adapterRequestMap.get(id) != nil {
+			adapterFunc := a.adapterRequestMap.get(id)
+			a.adapterRequestMap.delete(id)
 			// 调用注册的回调函数
 			if strings.Contains(msg, "result") {
 				adapterFunc([]byte(gjson.Get(msg, "result").String()))
@@ -265,8 +330,8 @@ func (a *Adapter) defaultReceiveWebkit(message []byte) {
 		}
 	} else {
 		var eventName = gjson.Get(msg, "method").String()
-		if a.messageFilters[eventName] != nil {
-			rawMessage := a.messageFilters[eventName]([]byte(msg))
+		if a.messageFilters.get(eventName) != nil {
+			rawMessage := a.messageFilters.get(eventName)([]byte(msg))
 			if rawMessage != nil {
 				a.sendDevTool(rawMessage)
 			}
@@ -294,10 +359,10 @@ func (a *Adapter) defaultReceiveDevTool(message []byte) {
 	msg := string(message)
 	eventName := gjson.Get(msg, "method").String()
 	id := gjson.Get(msg, "id").Int()
-	a.toolRequestMap[id] = eventName
+	a.toolRequestMap.put(id, eventName)
 
-	if a.messageFilters[eventName] != nil {
-		message = a.messageFilters[eventName](message)
+	if a.messageFilters.get(eventName) != nil {
+		message = a.messageFilters.get(eventName)(message)
 	}
 	if message != nil {
 		protocolMessage := &entity.TargetProtocol{}
