@@ -900,7 +900,7 @@ func (p *protocolAdapter) mapStyle(cssStyle gjson.Result, ruleOrigin string, new
 	}
 
 	for _, cssProperty := range gjson.Get(newMsg, cssStyle.Get("cssProperties").Path(oldMsg)).Array() {
-		newMsg = p.mapCssProperty(cssProperty, oldMsg)
+		newMsg = p.mapCssProperty(cssProperty, newMsg, newMsg)
 	}
 	if ruleOrigin != "user-agent" {
 		path := cssStyle.Get("styleSheetId").Path(oldMsg)
@@ -949,10 +949,8 @@ func (p *protocolAdapter) mapStyle(cssStyle gjson.Result, ruleOrigin string, new
 	return newMsg
 }
 
-func (p *protocolAdapter) mapCssProperty(cssProperty gjson.Result, message string) string {
+func (p *protocolAdapter) mapCssProperty(cssProperty gjson.Result, newMsg string, oldMsg string) string {
 	var err error
-	var newMsg = message
-	var oldMsg = message
 	path := cssProperty.Get("status.disabled").Path(oldMsg)
 	if cssProperty.Get("status").String() == "disabled" {
 		newMsg, err = sjson.Set(newMsg, path, true)
