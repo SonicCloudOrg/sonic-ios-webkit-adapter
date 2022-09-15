@@ -285,9 +285,11 @@ func (p *protocolAdapter) onExecutionContextCreated(message []byte) []byte {
 				if err != nil {
 					log.Panic(err)
 				}
-				msg, err = sjson.Delete(msg, "params.context.frameId")
-				if err != nil {
-					log.Panic(err)
+				if gjson.Get(msg, "params.context.frameId").Exists() {
+					msg, err = sjson.Delete(msg, "params.context.frameId")
+					if err != nil {
+						log.Panic(err)
+					}
 				}
 			}
 		}
@@ -402,9 +404,11 @@ func (p *protocolAdapter) onSetInspectMode(message []byte) []byte {
 	if err != nil {
 		log.Panic(err)
 	}
-	msg, err = sjson.Delete(msg, "params.mode")
-	if err != nil {
-		log.Panic(err)
+	if gjson.Get(msg, "params.mode").Exists() {
+		msg, err = sjson.Delete(msg, "params.mode")
+		if err != nil {
+			log.Panic(err)
+		}
 	}
 	return []byte(msg)
 }
@@ -420,14 +424,19 @@ func (p *protocolAdapter) onInspect(message []byte) []byte {
 	if err != nil {
 		log.Panic(err)
 	}
-	msg, err = sjson.Delete(msg, "params.object")
-	if err != nil {
-		log.Panic(err)
+	if gjson.Get(msg, "params.hints").Exists() {
+		msg, err = sjson.Delete(msg, "params.object")
+		if err != nil {
+			log.Panic(err)
+		}
 	}
-	msg, err = sjson.Delete(msg, "params.hints")
-	if err != nil {
-		log.Panic(err)
+	if gjson.Get(msg, "params.hints").Exists() {
+		msg, err = sjson.Delete(msg, "params.hints")
+		if err != nil {
+			log.Panic(err)
+		}
 	}
+
 	return []byte(msg)
 }
 
@@ -755,9 +764,11 @@ func (p *protocolAdapter) mapRule(cssRule gjson.Result, newMsg string, oldMsg st
 		if err != nil {
 			log.Panic(err)
 		}
-		newMsg, err = sjson.Delete(newMsg, path)
-		if err != nil {
-			log.Panic(err)
+		if gjson.Get(newMsg, path).Exists() {
+			newMsg, err = sjson.Delete(newMsg, path)
+			if err != nil {
+				log.Panic(err)
+			}
 		}
 		// todo
 		newMsg = p.mapSelectorList(cssRule.Get("selectorList"), oldMsg)
@@ -765,9 +776,11 @@ func (p *protocolAdapter) mapRule(cssRule gjson.Result, newMsg string, oldMsg st
 		newMsg = p.mapStyle(cssRule.Get("style"), cssRule.Get("origin").String(), newMsg, oldMsg)
 
 		path = cssRule.Get("sourceLine").Path(oldMsg)
-		newMsg, err = sjson.Delete(newMsg, path)
-		if err != nil {
-			log.Panic(err)
+		if gjson.Get(newMsg, path).Exists() {
+			newMsg, err = sjson.Delete(newMsg, path)
+			if err != nil {
+				log.Panic(err)
+			}
 		}
 	}
 	return newMsg
@@ -898,7 +911,6 @@ func (p *protocolAdapter) mapStyle(cssStyle gjson.Result, ruleOrigin string, new
 			}
 		}
 	}
-
 	for _, cssProperty := range gjson.Get(newMsg, cssStyle.Get("cssProperties").Path(oldMsg)).Array() {
 		newMsg = p.mapCssProperty(cssProperty, newMsg, newMsg)
 	}
@@ -922,30 +934,45 @@ func (p *protocolAdapter) mapStyle(cssStyle gjson.Result, ruleOrigin string, new
 	}
 	// delete
 	path := cssStyle.Get("styleId").Path(oldMsg)
-	newMsg, err = sjson.Delete(newMsg, path)
-	if err != nil {
-		log.Panic(err)
+	if gjson.Get(newMsg, path).Exists() {
+		newMsg, err = sjson.Delete(newMsg, path)
+		if err != nil {
+			log.Panic(err)
+		}
 	}
+
 	path = cssStyle.Get("sourceLine").Path(oldMsg)
-	newMsg, err = sjson.Delete(newMsg, path)
-	if err != nil {
-		log.Panic(err)
+	if gjson.Get(newMsg, path).Exists() {
+		newMsg, err = sjson.Delete(newMsg, path)
+		if err != nil {
+			log.Panic(err)
+		}
 	}
+
 	path = cssStyle.Get("sourceURL").Path(oldMsg)
-	newMsg, err = sjson.Delete(newMsg, path)
-	if err != nil {
-		log.Panic(err)
+	if gjson.Get(newMsg, path).Exists() {
+		newMsg, err = sjson.Delete(newMsg, path)
+		if err != nil {
+			log.Panic(err)
+		}
 	}
+
 	path = cssStyle.Get("width").Path(oldMsg)
-	newMsg, err = sjson.Delete(newMsg, path)
-	if err != nil {
-		log.Panic(err)
+	if gjson.Get(newMsg, path).Exists() {
+		newMsg, err = sjson.Delete(newMsg, path)
+		if err != nil {
+			log.Panic(err)
+		}
 	}
+
 	path = cssStyle.Get("height").Path(oldMsg)
-	newMsg, err = sjson.Delete(newMsg, path)
-	if err != nil {
-		log.Panic(err)
+	if gjson.Get(newMsg, path).Exists() {
+		newMsg, err = sjson.Delete(newMsg, path)
+		if err != nil {
+			log.Panic(err)
+		}
 	}
+
 	return newMsg
 }
 
@@ -963,11 +990,15 @@ func (p *protocolAdapter) mapCssProperty(cssProperty gjson.Result, newMsg string
 			log.Panic(err)
 		}
 	}
-	// delete cssProperty.status;
-	path = cssProperty.Get("status").Path(oldMsg)
-	newMsg, err = sjson.Delete(newMsg, path)
-	if err != nil {
-		log.Panic(err)
+	if cssProperty.Get("status").Exists() {
+		// delete cssProperty.status;
+		path = cssProperty.Get("status").Path(oldMsg)
+		if gjson.Get(newMsg, path).Exists() {
+			newMsg, err = sjson.Delete(newMsg, path)
+			if err != nil {
+				log.Panic(err)
+			}
+		}
 	}
 
 	priority := cssProperty.Get("priority")
@@ -981,10 +1012,13 @@ func (p *protocolAdapter) mapCssProperty(cssProperty gjson.Result, newMsg string
 	}
 
 	path = priority.Path(oldMsg)
-	newMsg, err = sjson.Delete(newMsg, path)
-	if err != nil {
-		log.Panic(err)
+	if gjson.Get(newMsg, path).Exists() {
+		newMsg, err = sjson.Delete(newMsg, path)
+		if err != nil {
+			log.Panic(err)
+		}
 	}
+
 	return newMsg
 }
 
