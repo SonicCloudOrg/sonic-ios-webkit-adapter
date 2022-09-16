@@ -19,7 +19,7 @@ package adapters
 import (
 	"encoding/json"
 	"fmt"
-	"github.com/SonicCloudOrg/sonic-ios-webkit-adapter/entity"
+	"github.com/SonicCloudOrg/sonic-ios-webkit-adapter/entity/WebKitProtocol"
 	"github.com/tidwall/gjson"
 	"github.com/tidwall/sjson"
 	"log"
@@ -56,7 +56,7 @@ func initProtocolAdapter(adapter *Adapter, version string) *protocolAdapter {
 	return protocol
 }
 
-type mapSelectorListFunc func(selectorList gjson.Result, message string) string
+type mapSelectorListFunc func(selectorList *WebKitProtocol.SelectorList)
 
 type protocolAdapter struct {
 	adapter                    *Adapter
@@ -69,8 +69,8 @@ type protocolAdapter struct {
 }
 
 func (p *protocolAdapter) init() {
-	p.mapSelectorList = func(selectorList gjson.Result, message string) string {
-		return message
+	p.mapSelectorList = func(selectorList *WebKitProtocol.SelectorList) {
+
 	}
 	p.styleMap = make(map[string]interface{})
 
@@ -737,72 +737,69 @@ func (p *protocolAdapter) enumerateStyleSheets(message []byte) []byte {
 func (p *protocolAdapter) onAddRule(message []byte) []byte {
 	var selector = gjson.Get(string(message), "params.ruleText").String()
 	selector = strings.TrimSpace(selector)
+	// todo prone to bugs
 	selector = strings.Replace(selector, "{}", "", -1)
 	params := map[string]interface{}{
 		"contextNodeId": p.lastNodeId,
 		"selector":      selector,
 	}
-	p.adapter.CallTarget("CSS.addRule", params, func(message []byte) {
-		var newMsg = string(message)
-		var oldMsg = string(message)
-		var param interface{}
-		err := json.Unmarshal(message, param)
+	p.adapter.CallTarget("CSS.addRule", params, func(addRuleResultMessage []byte) {
+		var addRuleResult = &WebKitProtocol.AddRuleResult{}
+		err := json.Unmarshal(addRuleResultMessage, addRuleResult)
 		if err != nil {
 			log.Panic(err)
 		}
-		newMsg = p.mapRule(gjson.Get(newMsg, "rule"), newMsg, oldMsg)
-		p.adapter.FireResultToTools(int(gjson.Get(newMsg, "id").Int()), param)
+		p.mapRule(addRuleResult.Rule)
+
+		p.adapter.FireResultToTools(int(gjson.Get(string(message), "id").Int()), addRuleResult)
 	})
 	return nil
 }
 
-func (p *protocolAdapter) mapRule(cssRule gjson.Result, newMsg string, oldMsg string) string {
-	var err error
-	if cssRule.Get("ruleId").Exists() {
-		path := cssRule.Get("styleSheetId").Path(oldMsg)
-		newMsg, err = sjson.Set(newMsg, path, cssRule.Get("ruleId.styleSheetId").Value())
-		if err != nil {
-			log.Panic(err)
-		}
-		if gjson.Get(newMsg, path).Exists() {
-			newMsg, err = sjson.Delete(newMsg, path)
-			if err != nil {
-				log.Panic(err)
-			}
-		}
-		// todo
-		newMsg = p.mapSelectorList(cssRule.Get("selectorList"), oldMsg)
-
-		newMsg = p.mapStyle(cssRule.Get("style"), cssRule.Get("origin").String(), newMsg, oldMsg)
-
-		path = cssRule.Get("sourceLine").Path(oldMsg)
-		if gjson.Get(newMsg, path).Exists() {
-			newMsg, err = sjson.Delete(newMsg, path)
-			if err != nil {
-				log.Panic(err)
-			}
-		}
+func (p *protocolAdapter) mapRule(cssRule *WebKitProtocol.CSSRule) {
+	if cssRule.RuleId != nil {
+		cssRule.DevToolStyleSheetId = cssRule.RuleId.StyleSheetId
+		cssRule.RuleId = nil
 	}
-	return newMsg
+
+	p.mapSelectorList(cssRule.SelectorList)
+
+	p.mapStyle(cssRule.Style, "")
+
+	cssRule.SourceLine = nil
 }
 
 func (p *protocolAdapter) onGetMatchedStylesForNodeResult(message []byte) []byte {
-	newMsg := string(message)
-	oldMsg := string(message)
-	result := gjson.Get(newMsg, "result")
-	if result.Exists() {
-		for _, matchedCSSRule := range result.Get("matchedCSSRules").Array() {
-			newMsg = p.mapRule(matchedCSSRule.Get("rule"), newMsg, oldMsg)
+
+	if gjson.Get(string(message), "result").Exists() {
+		var getMatchedStylesForNodeResult = &WebKitProtocol.GetMatchedStylesForNodeResult{}
+
+		err := json.Unmarshal(message, getMatchedStylesForNodeResult)
+		if err != nil {
+			log.Panic(err)
 		}
-		for _, inherited := range result.Get("inherited").Array() {
-			if inherited.Get("matchedCSSRules").Exists() {
-				for _, matchedCSSRule := range result.Get("matchedCSSRules").Array() {
-					newMsg = p.mapRule(matchedCSSRule.Get("rule"), newMsg, oldMsg)
+
+		for _, matchedCSSRule := range getMatchedStylesForNodeResult.MatchedCSSRules {
+			if matchedCSSRule.Rule != nil {
+				p.mapRule(matchedCSSRule.Rule)
+			}
+		}
+
+		for _, inherited := range getMatchedStylesForNodeResult.Inherited {
+			if inherited.MatchedCSSRules != nil {
+				for _, matchedCSSRule := range inherited.MatchedCSSRules {
+					p.mapRule(matchedCSSRule.Rule)
 				}
 			}
 		}
+
+		newMessage, err1 := sjson.Set(string(message), "result", getMatchedStylesForNodeResult)
+		if err1 != nil {
+			log.Panic(err1)
+		}
+		message = []byte(newMessage)
 	}
-	return []byte(newMsg)
+	return message
 }
 
 // onSetStyleTexts todo KeyCheck
@@ -837,8 +834,14 @@ func (p *protocolAdapter) onSetStyleTexts(message []byte) []byte {
 						"text": edit.Get("text").String(),
 					}
 					p.adapter.CallTarget("CSS.setStyleText", params, func(setStyleResult []byte) {
-						mapStyleResult := p.mapStyle(gjson.Get(string(setStyleResult), "style"), "", string(setStyleResult), string(setStyleResult))
-						allStyleText = append(allStyleText, gjson.Get(mapStyleResult, "style").Value())
+						var setStyleResultData = &WebKitProtocol.SetStyleTextResult{}
+						err := json.Unmarshal(setStyleResult, setStyleResultData)
+						if err != nil {
+							log.Panic(err)
+						}
+						p.mapStyle(setStyleResultData.Style, "")
+
+						allStyleText = append(allStyleText, setStyleResultData.Style)
 						// stop for
 						whetherToContinueTheCycle = false
 					})
@@ -853,12 +856,12 @@ func (p *protocolAdapter) onSetStyleTexts(message []byte) []byte {
 	return nil
 }
 
-func (p *protocolAdapter) mapStyle(cssStyle gjson.Result, ruleOrigin string, newMsg string, oldMsg string) string {
-	var err error
-	if cssStyle.Get("cssText").Exists() {
-		disabled := p.extractDisabledStyles(cssStyle.Get("cssText").String(), cssStyle.Get("range"))
+func (p *protocolAdapter) mapStyle(cssStyle *WebKitProtocol.CSSStyle, ruleOrigin string) {
+
+	if cssStyle.CssText != nil {
+		disabled := p.extractDisabledStyles(*cssStyle.CssText, cssStyle.Range)
 		for i, value := range disabled {
-			noSpaceStr := strings.TrimSpace(value.Content)
+			noSpaceStr := strings.TrimSpace(*value.Content)
 			// 原版 const text = disabled[i].content.trim().replace(/^\/\*\s*/, '').replace(/;\s*\*\/$/, '');
 			reg := regexp.MustCompile(`^\\/\\*\\s*`)
 			noSpaceStr = reg.ReplaceAllString(noSpaceStr, ``)
@@ -867,165 +870,93 @@ func (p *protocolAdapter) mapStyle(cssStyle gjson.Result, ruleOrigin string, new
 			noSpaceStr = reg.ReplaceAllString(noSpaceStr, ``)
 
 			parts := strings.Split(noSpaceStr, ":")
-			if cssStyle.Get("cssProperties").Exists() {
-				cssProperties := cssStyle.Get("cssProperties").Array()
-				var index = len(cssProperties)
-				for j, _ := range cssProperties {
-					if cssProperties[j].Get("range").Exists() &&
-						(cssProperties[j].Get("range.startLine").Int() > int64(disabled[i].CssRange.StartLine) ||
-							cssProperties[j].Get("range.startLine").Int() == int64(disabled[i].CssRange.StartLine) ||
-							cssProperties[j].Get("range.startColumn").Int() > int64(disabled[i].CssRange.StartColumn)) {
+			if cssStyle.CssProperties != nil {
+				var index = len(cssStyle.CssProperties)
+				for j, _ := range cssStyle.CssProperties {
+					if cssStyle.CssProperties[j].Range != nil &&
+						(cssStyle.CssProperties[j].Range.StartLine > disabled[i].Range.StartLine ||
+							cssStyle.CssProperties[j].Range.StartLine == disabled[i].Range.StartLine ||
+							cssStyle.CssProperties[j].Range.StartColumn > disabled[i].Range.StartColumn) {
 						index = j
 						break
 					}
 				}
 
-				cssPropertiesObjects := cssStyle.Get("cssProperties").Value()
-				path := cssStyle.Get("cssProperties").Path(oldMsg)
+				cssPropertiesObjects := cssStyle.CssProperties
 				// insert index
-				if cssPropertiesArrays, ok := cssPropertiesObjects.([]interface{}); ok {
-					var cssPropertiesFinal []interface{}
-					cssPropertiesLeft := cssPropertiesArrays[:index+1]
-					cssPropertiesRight := cssPropertiesArrays[index+1:]
+				cssPropertiesLeft := cssPropertiesObjects[:index+1]
+				cssPropertiesRight := cssPropertiesObjects[index+1:]
 
-					cssPropertiesFinal = append(cssPropertiesLeft, map[string]interface{}{
-						"implicit": false,
-						"name":     parts[0],
-						"range":    disabled[i].CssRange,
-						"status":   "disabled",
-						"text":     disabled[i].Content,
-						"value":    parts[1],
-					})
-					cssPropertiesFinal = append(cssPropertiesFinal, cssPropertiesRight...)
-					arr, err1 := json.Marshal(cssPropertiesFinal)
-					if err1 != nil {
-						log.Panic(err1)
-					}
-					newMsg, err = sjson.Set(newMsg, path, string(arr))
-					if err != nil {
-						log.Panic(err)
-					}
-				} else {
-					log.Panic(fmt.Errorf("failed to convert object"))
+				implicity := false
+
+				var status WebKitProtocol.CSSPropertyStatus = "disabled"
+				data := WebKitProtocol.CSSProperty{
+					Implicit: &implicity,
+					Name:     &parts[0],
+					Range:    disabled[i].Range,
+					Status:   &status,
+					Text:     disabled[i].Content,
+					Value:    &parts[1],
 				}
+
+				cssPropertiesLeft = append(cssPropertiesLeft, data)
+
+				cssPropertiesLeft = append(cssPropertiesLeft, cssPropertiesRight...)
+
+				cssStyle.CssProperties = cssPropertiesLeft
 			}
 		}
 	}
-	for _, cssProperty := range gjson.Get(newMsg, cssStyle.Get("cssProperties").Path(oldMsg)).Array() {
-		newMsg = p.mapCssProperty(cssProperty, newMsg, newMsg)
+
+	for _, cssProperty := range cssStyle.CssProperties {
+		p.mapCssProperty(&cssProperty)
 	}
 	if ruleOrigin != "user-agent" {
-		path := cssStyle.Get("styleSheetId").Path(oldMsg)
-		newMsg, err = sjson.Set(newMsg, path, cssStyle.Get("styleId.styleSheetId").String())
-		if err != nil {
-			log.Panic(err)
-		}
-		cssStyleRangeArr, err1 := json.Marshal(cssStyle.Get("range").Value())
+		cssStyle.StyleSheetId = cssStyle.StyleId.StyleSheetId
+		arr, err1 := json.Marshal(cssStyle.Range)
 		if err1 != nil {
 			log.Panic(err1)
 		}
-		var styleKey = fmt.Sprintf("%s_%s", cssStyle.Get("styleId.styleSheetId").String(), string(cssStyleRangeArr))
+		var styleKey = fmt.Sprintf("%s_%s", *cssStyle.StyleSheetId, string(arr))
 		if p.styleMap == nil {
 			p.styleMap = make(map[string]interface{})
 
 		}
-		p.styleMap[styleKey] = cssStyle.Get("styleId.styleSheetId").String()
+		p.styleMap[styleKey] = cssStyle.StyleId
 
 	}
 	// delete
-	path := cssStyle.Get("styleId").Path(oldMsg)
-	if gjson.Get(newMsg, path).Exists() {
-		newMsg, err = sjson.Delete(newMsg, path)
-		if err != nil {
-			log.Panic(err)
-		}
-	}
-
-	path = cssStyle.Get("sourceLine").Path(oldMsg)
-	if gjson.Get(newMsg, path).Exists() {
-		newMsg, err = sjson.Delete(newMsg, path)
-		if err != nil {
-			log.Panic(err)
-		}
-	}
-
-	path = cssStyle.Get("sourceURL").Path(oldMsg)
-	if gjson.Get(newMsg, path).Exists() {
-		newMsg, err = sjson.Delete(newMsg, path)
-		if err != nil {
-			log.Panic(err)
-		}
-	}
-
-	path = cssStyle.Get("width").Path(oldMsg)
-	if gjson.Get(newMsg, path).Exists() {
-		newMsg, err = sjson.Delete(newMsg, path)
-		if err != nil {
-			log.Panic(err)
-		}
-	}
-
-	path = cssStyle.Get("height").Path(oldMsg)
-	if gjson.Get(newMsg, path).Exists() {
-		newMsg, err = sjson.Delete(newMsg, path)
-		if err != nil {
-			log.Panic(err)
-		}
-	}
-
-	return newMsg
+	cssStyle.StyleId = nil
+	cssStyle.Width = nil
+	cssStyle.Height = nil
+	// todo         delete cssStyle.sourceLine; this old version?
+	//        delete cssStyle.sourceURL;
 }
 
-func (p *protocolAdapter) mapCssProperty(cssProperty gjson.Result, newMsg string, oldMsg string) string {
-	var err error
-	path := cssProperty.Get("status.disabled").Path(oldMsg)
-	if cssProperty.Get("status").String() == "disabled" {
-		newMsg, err = sjson.Set(newMsg, path, true)
-		if err != nil {
-			log.Panic(err)
-		}
-	} else if cssProperty.Get("status").String() == "active" {
-		newMsg, err = sjson.Set(newMsg, path, false)
-		if err != nil {
-			log.Panic(err)
-		}
+func (p *protocolAdapter) mapCssProperty(cssProperty *WebKitProtocol.CSSProperty) {
+	resultTrue := true
+	resultFalse := false
+	if *cssProperty.Status == "disabled" {
+		cssProperty.Disabled = &resultTrue
+	} else if *cssProperty.Status == "active" {
+		cssProperty.Disabled = &resultFalse
 	}
-	if cssProperty.Get("status").Exists() {
-		// delete cssProperty.status;
-		path = cssProperty.Get("status").Path(oldMsg)
-		if gjson.Get(newMsg, path).Exists() {
-			newMsg, err = sjson.Delete(newMsg, path)
-			if err != nil {
-				log.Panic(err)
-			}
-		}
-	}
+	cssProperty.Status = nil
 
-	priority := cssProperty.Get("priority")
-	if priority.Exists() && priority.String() != "" {
-		newMsg, err = sjson.Set(newMsg, cssProperty.Get("important").Path(oldMsg), true)
+	priority := cssProperty.Priority
+	if priority != nil && *priority != "" {
+		cssProperty.Implicit = &resultTrue
 	} else {
-		newMsg, err = sjson.Set(newMsg, cssProperty.Get("important").Path(oldMsg), false)
-	}
-	if err != nil {
-		log.Panic(err)
+		cssProperty.Implicit = &resultFalse
 	}
 
-	path = priority.Path(oldMsg)
-	if gjson.Get(newMsg, path).Exists() {
-		newMsg, err = sjson.Delete(newMsg, path)
-		if err != nil {
-			log.Panic(err)
-		}
-	}
-
-	return newMsg
+	cssProperty.Implicit = nil
 }
 
 // extractDisabledStyles todo KeyCheck
-func (p *protocolAdapter) extractDisabledStyles(styleText string, cssRange gjson.Result) []entity.IDisabledStyle {
+func (p *protocolAdapter) extractDisabledStyles(styleText string, cssRange *WebKitProtocol.SourceRange) []WebKitProtocol.SourceRange {
 	var startIndices []int
-	var styles []entity.IDisabledStyle
+	var styles []WebKitProtocol.SourceRange
 	for index, _ := range styleText {
 		endIndexBEGINCOMMENT := index + len(BEGIN_COMMENT)
 		endIndexENDCOMMENT := index + len(END_COMMENT)
@@ -1034,7 +965,7 @@ func (p *protocolAdapter) extractDisabledStyles(styleText string, cssRange gjson
 			index = index + len(BEGIN_COMMENT)
 		} else if endIndexENDCOMMENT <= len(styleText) && string([]rune(styleText)[index:endIndexENDCOMMENT]) == END_COMMENT {
 			if len(startIndices) == 0 {
-				return []entity.IDisabledStyle{}
+				return []WebKitProtocol.SourceRange{}
 			}
 			startIndex := startIndices[0]
 			startIndices = startIndices[1:]
@@ -1043,9 +974,10 @@ func (p *protocolAdapter) extractDisabledStyles(styleText string, cssRange gjson
 			startRangeLine, startRangeColumn := p.getLineColumnFromIndex(styleText, startIndex, cssRange)
 			endRangeLine, endRangeColumn := p.getLineColumnFromIndex(styleText, endIndex, cssRange)
 
-			propertyItem := entity.IDisabledStyle{
-				Content: styleText[startIndex:endIndex],
-				CssRange: entity.IRange{
+			content := styleText[startIndex:endIndex]
+			propertyItem := WebKitProtocol.SourceRange{
+				Content: &content,
+				Range: &WebKitProtocol.SourceRange{
 					StartLine:   startRangeLine,
 					StartColumn: startRangeColumn,
 					EndLine:     endRangeLine,
@@ -1057,19 +989,19 @@ func (p *protocolAdapter) extractDisabledStyles(styleText string, cssRange gjson
 		}
 	}
 	if len(startIndices) == 0 {
-		return []entity.IDisabledStyle{}
+		return []WebKitProtocol.SourceRange{}
 	}
 	return styles
 }
 
 // todo KeyCheck
-func (p *protocolAdapter) getLineColumnFromIndex(text string, index int, startRange gjson.Result) (line int, column int) {
+func (p *protocolAdapter) getLineColumnFromIndex(text string, index int, startRange *WebKitProtocol.SourceRange) (line int, column int) {
 	if text == "" || index < 0 || index > len(text) {
 		return 0, 0
 	}
-	if startRange.Exists() {
-		line = int(startRange.Get("StartLine").Int())
-		column = int(startRange.Get("StartColumn").Int())
+	if startRange != nil {
+		line = startRange.StartLine
+		column = startRange.StartColumn
 	}
 	for i := 0; i < len(text) && i < index; i++ {
 		if text[i] == '\r' && i+1 < len(text) && text[i+1] == '\n' {

@@ -31,9 +31,9 @@ type FrameResource struct {
 }
 
 type FrameResourceTree struct {
-	Frame       *Frame               `json:"frame"`
-	ChildFrames *[]FrameResourceTree `json:"childFrames,omitempty"`
-	Resources   *[]FrameResource     `json:"resources"`
+	Frame       *Frame              `json:"frame"`
+	ChildFrames []FrameResourceTree `json:"childFrames,omitempty"`
+	Resources   []FrameResource     `json:"resources"`
 }
 
 type SearchResult struct {

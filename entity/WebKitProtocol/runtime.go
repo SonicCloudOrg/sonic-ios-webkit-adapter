@@ -15,14 +15,14 @@ type RemoteObject struct {
 }
 
 type ObjectPreview struct {
-	Type        *string            `json:"type"`
-	Subtype     *string            `json:"subtype,omitempty"`
-	Description *string            `json:"description,omitempty"`
-	Lossless    *bool              `json:"lossless"`
-	Overflow    *bool              `json:"overflow,omitempty"`
-	Properties  *[]PropertyPreview `json:"properties,omitempty"`
-	Entries     *[]EntryPreview    `json:"entries,omitempty"`
-	Size        *int               `json:"size,omitempty"`
+	Type        *string           `json:"type"`
+	Subtype     *string           `json:"subtype,omitempty"`
+	Description *string           `json:"description,omitempty"`
+	Lossless    *bool             `json:"lossless"`
+	Overflow    *bool             `json:"overflow,omitempty"`
+	Properties  []PropertyPreview `json:"properties,omitempty"`
+	Entries     []EntryPreview    `json:"entries,omitempty"`
+	Size        *int              `json:"size,omitempty"`
 }
 
 type PropertyPreview struct {
@@ -87,8 +87,8 @@ type ErrorRange struct {
 }
 
 type StructureDescription struct {
-	Fields             *[]string             `json:"fields,omitempty"`
-	OptionalFields     *[]string             `json:"optionalFields,omitempty"`
+	Fields             []string              `json:"fields,omitempty"`
+	OptionalFields     []string              `json:"optionalFields,omitempty"`
 	ConstructorName    *string               `json:"constructorName,omitempty"`
 	PrototypeStructure *StructureDescription `json:"prototypeStructure,omitempty"`
 	IsImprecise        *bool                 `json:"isImprecise,omitempty"`
@@ -108,11 +108,11 @@ type TypeSet struct {
 }
 
 type TypeDescription struct {
-	IsValid             *bool                   `json:"isValid"`
-	LeastCommonAncestor *string                 `json:"leastCommonAncestor,omitempty"`
-	TypeSet             *TypeSet                `json:"typeSet,omitempty"`
-	Structures          *[]StructureDescription `json:"structures,omitempty"`
-	IsTruncated         *bool                   `json:"isTruncated,omitempty"`
+	IsValid             *bool                  `json:"isValid"`
+	LeastCommonAncestor *string                `json:"leastCommonAncestor,omitempty"`
+	TypeSet             *TypeSet               `json:"typeSet,omitempty"`
+	Structures          []StructureDescription `json:"structures,omitempty"`
+	IsTruncated         *bool                  `json:"isTruncated,omitempty"`
 }
 
 type TypeLocation struct {

@@ -22,24 +22,24 @@ type BreakpointAction struct {
 }
 
 type BreakpointOptions struct {
-	Condition    *string             `json:"condition,omitempty"`
-	Actions      *[]BreakpointAction `json:"actions,omitempty"`
-	AutoContinue *bool               `json:"autoContinue,omitempty"`
-	IgnoreCount  *int                `json:"ignoreCount,omitempty"`
+	Condition    *string            `json:"condition,omitempty"`
+	Actions      []BreakpointAction `json:"actions,omitempty"`
+	AutoContinue *bool              `json:"autoContinue,omitempty"`
+	IgnoreCount  *int               `json:"ignoreCount,omitempty"`
 }
 
 type FunctionDetails struct {
 	Location    *Location `json:"location"`
 	Name        *string   `json:"name,omitempty"`
 	DisplayName *string   `json:"displayName,omitempty"`
-	ScopeChain  *[]Scope  `json:"scopeChain,omitempty"`
+	ScopeChain  []Scope   `json:"scopeChain,omitempty"`
 }
 
 type DebuggerCallFrame struct {
 	CallFrameId   *CallFrameId  `json:"callFrameId"`
 	FunctionName  *string       `json:"functionName"`
 	Location      *Location     `json:"location"`
-	ScopeChain    *[]Scope      `json:"scopeChain"`
+	ScopeChain    []Scope       `json:"scopeChain"`
 	This          *RemoteObject `json:"this"`
 	IsTailDeleted *bool         `json:"isTailDeleted"`
 }

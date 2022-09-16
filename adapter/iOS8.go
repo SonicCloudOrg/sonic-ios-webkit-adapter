@@ -17,6 +17,7 @@
 package adapters
 
 import (
+	"github.com/SonicCloudOrg/sonic-ios-webkit-adapter/entity/WebKitProtocol"
 	"github.com/tidwall/gjson"
 	"github.com/tidwall/sjson"
 	"log"
@@ -47,23 +48,15 @@ func (i *iOS8) targetError(message []byte) []byte {
 	return []byte(msg)
 }
 
-func (i *iOS8) mapSelectorList(selectorList gjson.Result, message string) string {
-	cssRange := selectorList.Get("range")
-	var err error
-	for _, selector := range selectorList.Get("selectors").Array() {
-		message, err = sjson.Set(message, selector.Path(message), map[string]interface{}{
-			"text": selector.Value(),
-		})
-		if cssRange.Exists() {
-			message, err = sjson.Set(message, selector.Get("range").Path(message), cssRange.Value())
+func (i *iOS8) mapSelectorList(selectorList *WebKitProtocol.SelectorList) {
+	cssRange := selectorList.Range
+	for index, _ := range selectorList.Selectors {
+		selectorList.Selectors[index] = WebKitProtocol.CSSSelector{
+			Text: selectorList.Selectors,
 		}
-		if err != nil {
-			log.Panic(err)
+		if cssRange != nil {
+			selectorList.Selectors[index].Range = cssRange
 		}
 	}
-	message, err = sjson.Delete(message, cssRange.Path(message))
-	if err != nil {
-		log.Panic(err)
-	}
-	return message
+	selectorList.Range = nil
 }

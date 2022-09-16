@@ -9,8 +9,8 @@ type Certificate struct {
 	Subject     *string   `json:"subject,omitempty"`
 	ValidFrom   *Walltime `json:"validFrom,omitempty"`
 	ValidUntil  *Walltime `json:"validUntil,omitempty"`
-	DnsNames    *[]string `json:"dnsNames,omitempty"`
-	IpAddresses *[]string `json:"ipAddresses,omitempty"`
+	DnsNames    []string  `json:"dnsNames,omitempty"`
+	IpAddresses []string  `json:"ipAddresses,omitempty"`
 }
 
 type Security struct {

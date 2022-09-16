@@ -20,8 +20,8 @@ type Node struct {
 	NodeValue                 *string             `json:"nodeValue"`
 	FrameId                   *FrameId            `json:"frameId,omitempty"`
 	ChildNodeCount            *int                `json:"childNodeCount,omitempty"`
-	Children                  *[]Node             `json:"children,omitempty"`
-	Attributes                *[]string           `json:"attributes,omitempty"`
+	Children                  []Node              `json:"children,omitempty"`
+	Attributes                []string            `json:"attributes,omitempty"`
 	DocumentURL               *string             `json:"documentURL,omitempty"`
 	BaseURL                   *string             `json:"baseURL,omitempty"`
 	PublicId                  *string             `json:"publicId,omitempty"`
@@ -33,11 +33,11 @@ type Node struct {
 	ShadowRootType            *ShadowRootType     `json:"shadowRootType,omitempty"`
 	CustomElementState        *CustomElementState `json:"customElementState,omitempty"`
 	ContentDocument           *Node               `json:"contentDocument,omitempty"`
-	ShadowRoots               *[]Node             `json:"shadowRoots,omitempty"`
+	ShadowRoots               []Node              `json:"shadowRoots,omitempty"`
 	TemplateContent           *Node               `json:"templateContent,omitempty"`
-	PseudoElements            *[]Node             `json:"pseudoElements,omitempty"`
+	PseudoElements            []Node              `json:"pseudoElements,omitempty"`
 	ContentSecurityPolicyHash *string             `json:"contentSecurityPolicyHash,omitempty"`
-	LayoutFlags               *[]string           `json:"layoutFlags,omitempty"`
+	LayoutFlags               []string            `json:"layoutFlags,omitempty"`
 }
 
 type DataBinding struct {
@@ -62,38 +62,38 @@ type EventListener struct {
 }
 
 type AccessibilityProperties struct {
-	ActiveDescendantNodeId *NodeId   `json:"activeDescendantNodeId,omitempty"`
-	Busy                   *bool     `json:"busy,omitempty"`
-	Checked                *string   `json:"checked,omitempty"`
-	ChildNodeIds           *[]NodeId `json:"childNodeIds,omitempty"`
-	ControlledNodeIds      *[]NodeId `json:"controlledNodeIds,omitempty"`
-	Current                *string   `json:"current,omitempty"`
-	Disabled               *bool     `json:"disabled,omitempty"`
-	HeadingLevel           *int      `json:"headingLevel,omitempty"`
-	HierarchyLevel         *int      `json:"hierarchyLevel,omitempty"`
-	IsPopUpButton          *bool     `json:"isPopUpButton,omitempty"`
-	Exists                 *bool     `json:"exists"`
-	Expanded               *bool     `json:"expanded,omitempty"`
-	FlowedNodeIds          *[]NodeId `json:"flowedNodeIds,omitempty"`
-	Focused                *bool     `json:"focused,omitempty"`
-	Ignored                *bool     `json:"ignored,omitempty"`
-	IgnoredByDefault       *bool     `json:"ignoredByDefault,omitempty"`
-	Invalid                *string   `json:"invalid,omitempty"`
-	Hidden                 *bool     `json:"hidden,omitempty"`
-	Label                  *string   `json:"label"`
-	LiveRegionAtomic       *bool     `json:"liveRegionAtomic,omitempty"`
-	LiveRegionRelevant     *[]string `json:"liveRegionRelevant,omitempty"`
-	LiveRegionStatus       *string   `json:"liveRegionStatus,omitempty"`
-	MouseEventNodeId       *NodeId   `json:"mouseEventNodeId,omitempty"`
-	NodeId                 *NodeId   `json:"nodeId"`
-	OwnedNodeIds           *[]NodeId `json:"ownedNodeIds,omitempty"`
-	ParentNodeId           *NodeId   `json:"parentNodeId,omitempty"`
-	Pressed                *bool     `json:"pressed,omitempty"`
-	Readonly               *bool     `json:"readonly,omitempty"`
-	Required               *bool     `json:"required,omitempty"`
-	Role                   *string   `json:"role"`
-	Selected               *bool     `json:"selected,omitempty"`
-	SelectedChildNodeIds   *[]NodeId `json:"selectedChildNodeIds,omitempty"`
+	ActiveDescendantNodeId *NodeId  `json:"activeDescendantNodeId,omitempty"`
+	Busy                   *bool    `json:"busy,omitempty"`
+	Checked                *string  `json:"checked,omitempty"`
+	ChildNodeIds           []NodeId `json:"childNodeIds,omitempty"`
+	ControlledNodeIds      []NodeId `json:"controlledNodeIds,omitempty"`
+	Current                *string  `json:"current,omitempty"`
+	Disabled               *bool    `json:"disabled,omitempty"`
+	HeadingLevel           *int     `json:"headingLevel,omitempty"`
+	HierarchyLevel         *int     `json:"hierarchyLevel,omitempty"`
+	IsPopUpButton          *bool    `json:"isPopUpButton,omitempty"`
+	Exists                 *bool    `json:"exists"`
+	Expanded               *bool    `json:"expanded,omitempty"`
+	FlowedNodeIds          []NodeId `json:"flowedNodeIds,omitempty"`
+	Focused                *bool    `json:"focused,omitempty"`
+	Ignored                *bool    `json:"ignored,omitempty"`
+	IgnoredByDefault       *bool    `json:"ignoredByDefault,omitempty"`
+	Invalid                *string  `json:"invalid,omitempty"`
+	Hidden                 *bool    `json:"hidden,omitempty"`
+	Label                  *string  `json:"label"`
+	LiveRegionAtomic       *bool    `json:"liveRegionAtomic,omitempty"`
+	LiveRegionRelevant     []string `json:"liveRegionRelevant,omitempty"`
+	LiveRegionStatus       *string  `json:"liveRegionStatus,omitempty"`
+	MouseEventNodeId       *NodeId  `json:"mouseEventNodeId,omitempty"`
+	NodeId                 *NodeId  `json:"nodeId"`
+	OwnedNodeIds           []NodeId `json:"ownedNodeIds,omitempty"`
+	ParentNodeId           *NodeId  `json:"parentNodeId,omitempty"`
+	Pressed                *bool    `json:"pressed,omitempty"`
+	Readonly               *bool    `json:"readonly,omitempty"`
+	Required               *bool    `json:"required,omitempty"`
+	Role                   *string  `json:"role"`
+	Selected               *bool    `json:"selected,omitempty"`
+	SelectedChildNodeIds   []NodeId `json:"selectedChildNodeIds,omitempty"`
 }
 
 type RGBAColor struct {

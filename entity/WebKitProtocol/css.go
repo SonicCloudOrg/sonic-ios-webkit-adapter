@@ -19,30 +19,32 @@ type PseudoId string
 type ForceablePseudoClass string
 
 type PseudoIdMatches struct {
-	PseudoId *PseudoId    `json:"pseudoId"`
-	Matches  *[]RuleMatch `json:"matches"`
+	PseudoId *PseudoId   `json:"pseudoId"`
+	Matches  []RuleMatch `json:"matches"`
 }
 
 type InheritedStyleEntry struct {
-	InlineStyle     *CSSStyle    `json:"inlineStyle,omitempty"`
-	MatchedCSSRules *[]RuleMatch `json:"matchedCSSRules"`
+	InlineStyle     *CSSStyle   `json:"inlineStyle,omitempty"`
+	MatchedCSSRules []RuleMatch `json:"matchedCSSRules"`
 }
 
 type RuleMatch struct {
 	Rule              *CSSRule `json:"rule"`
-	MatchingSelectors *[]int   `json:"matchingSelectors"`
+	MatchingSelectors []int    `json:"matchingSelectors"`
 }
 
 type CSSSelector struct {
-	Text        *string `json:"text"`
-	Specificity *[]int  `json:"specificity,omitempty"`
-	Dynamic     *bool   `json:"dynamic,omitempty"`
+	Text        interface{} `json:"text"`
+	Specificity []int       `json:"specificity,omitempty"`
+	Dynamic     *bool       `json:"dynamic,omitempty"`
+	// devtool
+	Range interface{} `json:"range,omitempty"`
 }
 
 type SelectorList struct {
-	Selectors *[]CSSSelector `json:"selectors"`
-	Text      *string        `json:"text"`
-	Range     *SourceRange   `json:"range,omitempty"`
+	Selectors []CSSSelector `json:"selectors"`
+	Text      *string       `json:"text,omitempty"`
+	Range     *SourceRange  `json:"range,omitempty"`
 }
 
 type CSSStyleAttribute struct {
@@ -64,25 +66,31 @@ type CSSStyleSheetHeader struct {
 
 type CSSStyleSheetBody struct {
 	StyleSheetId *StyleSheetId `json:"styleSheetId"`
-	Rules        *[]CSSRule    `json:"rules"`
+	Rules        []CSSRule     `json:"rules"`
 	Text         *string       `json:"text,omitempty"`
 }
 
 type CSSRule struct {
 	RuleId       *CSSRuleId        `json:"ruleId,omitempty"`
-	SelectorList *SelectorList     `json:"selectorList"`
+	SelectorList *SelectorList     `json:"selectorList,omitempty"`
 	SourceURL    *string           `json:"sourceURL,omitempty"`
-	SourceLine   *int              `json:"sourceLine"`
-	Origin       *StyleSheetOrigin `json:"origin"`
-	Style        *CSSStyle         `json:"style"`
-	Groupings    *[]Grouping       `json:"groupings,omitempty"`
+	SourceLine   *int              `json:"sourceLine,omitempty"`
+	Origin       *StyleSheetOrigin `json:"origin,omitempty"`
+	Style        *CSSStyle         `json:"style,omitempty"`
+	Groupings    []Grouping        `json:"groupings,omitempty"`
+
+	// chrome devtool field
+	DevToolStyleSheetId *StyleSheetId `json:"styleSheetId"`
 }
 
 type SourceRange struct {
-	StartLine   *int `json:"startLine"`
-	StartColumn *int `json:"startColumn"`
-	EndLine     *int `json:"endLine"`
-	EndColumn   *int `json:"endColumn"`
+	StartLine   int `json:"startLine,omitempty"`
+	StartColumn int `json:"startColumn,omitempty"`
+	EndLine     int `json:"endLine,omitempty"`
+	EndColumn   int `json:"endColumn,omitempty"`
+	// devtool
+	Content *string      `json:"content,omitempty"`
+	Range   *SourceRange `json:"range,omitempty"`
 }
 
 type ShorthandEntry struct {
@@ -91,11 +99,11 @@ type ShorthandEntry struct {
 }
 
 type CSSPropertyInfo struct {
-	Name      *string   `json:"name"`
-	Aliases   *[]string `json:"aliases,omitempty"`
-	Longhands *[]string `json:"longhands,omitempty"`
-	Values    *[]string `json:"values,omitempty"`
-	Inherited *bool     `json:"inherited,omitempty"`
+	Name      *string  `json:"name"`
+	Aliases   []string `json:"aliases,omitempty"`
+	Longhands []string `json:"longhands,omitempty"`
+	Values    []string `json:"values,omitempty"`
+	Inherited *bool    `json:"inherited,omitempty"`
 }
 
 type CSSComputedStyleProperty struct {
@@ -104,13 +112,15 @@ type CSSComputedStyleProperty struct {
 }
 
 type CSSStyle struct {
-	StyleId          *CSSStyleId       `json:"styleId,omitempty"`
-	CssProperties    *[]CSSProperty    `json:"cssProperties"`
-	ShorthandEntries *[]ShorthandEntry `json:"shorthandEntries"`
-	CssText          *string           `json:"cssText,omitempty"`
-	Range            *SourceRange      `json:"range,omitempty"`
-	Width            *string           `json:"width,omitempty"`
-	Height           *string           `json:"height,omitempty"`
+	StyleId          *CSSStyleId      `json:"styleId,omitempty"`
+	CssProperties    []CSSProperty    `json:"cssProperties"`
+	ShorthandEntries []ShorthandEntry `json:"shorthandEntries"`
+	CssText          *string          `json:"cssText,omitempty"`
+	Range            *SourceRange     `json:"range,omitempty"`
+	Width            *string          `json:"width,omitempty"`
+	Height           *string          `json:"height,omitempty"`
+	// devtool
+	StyleSheetId *StyleSheetId `json:"styleSheetId,omitempty"`
 }
 
 type CSSPropertyStatus string
@@ -124,6 +134,8 @@ type CSSProperty struct {
 	ParsedOk *bool              `json:"parsedOk,omitempty"`
 	Status   *CSSPropertyStatus `json:"status,omitempty"`
 	Range    *SourceRange       `json:"range,omitempty"`
+	// devtool
+	Disabled *bool `json:"disabled,omitempty"`
 }
 
 type Grouping struct {
@@ -133,10 +145,10 @@ type Grouping struct {
 }
 
 type Font struct {
-	DisplayName        *string              `json:"displayName"`
-	VariationAxes      *[]FontVariationAxis `json:"variationAxes"`
-	SynthesizedBold    *bool                `json:"synthesizedBold,omitempty"`
-	SynthesizedOblique *bool                `json:"synthesizedOblique,omitempty"`
+	DisplayName        *string             `json:"displayName"`
+	VariationAxes      []FontVariationAxis `json:"variationAxes"`
+	SynthesizedBold    *bool               `json:"synthesizedBold,omitempty"`
+	SynthesizedOblique *bool               `json:"synthesizedOblique,omitempty"`
 }
 
 type FontVariationAxis struct {
@@ -150,3 +162,60 @@ type FontVariationAxis struct {
 type LayoutFlag string
 
 type LayoutContextTypeChangedMode string
+
+// result
+
+type GetMatchedStylesForNodeResult struct {
+	MatchedCSSRules []RuleMatch           `json:"matchedCSSRules,omitempty"`
+	PseudoElements  []PseudoIdMatches     `json:"pseudoElements,omitempty"`
+	Inherited       []InheritedStyleEntry `json:"inherited,omitempty"`
+}
+
+type GetInlineStylesForNodeResult struct {
+	InlineStyle     *CSSStyle `json:"inlineStyle,omitempty"`
+	AttributesStyle *CSSStyle `json:"attributesStyle,omitempty"`
+}
+
+type GetComputedStyleForNodeResult struct {
+	ComputedStyle []CSSComputedStyleProperty `json:"computedStyle"`
+}
+
+type GetFontDataForNodeResult struct {
+	PrimaryFont *Font `json:"primaryFont"`
+}
+
+type GetAllStyleSheetsResult struct {
+	Headers []CSSStyleSheetHeader `json:"headers"`
+}
+
+type GetStyleSheetResult struct {
+	StyleSheet *CSSStyleSheetBody `json:"styleSheet"`
+}
+
+type GetStyleSheetTextResult struct {
+	Text *string `json:"text"`
+}
+
+type SetStyleTextResult struct {
+	Style *CSSStyle `json:"style"`
+}
+
+type SetRuleSelectorResult struct {
+	Rule *CSSRule `json:"rule"`
+}
+
+type CreateStyleSheetResult struct {
+	StyleSheetId *StyleSheetId `json:"styleSheetId"`
+}
+
+type AddRuleResult struct {
+	Rule *CSSRule `json:"rule"`
+}
+
+type GetSupportedCSSPropertiesResult struct {
+	CssProperties []CSSPropertyInfo `json:"cssProperties"`
+}
+
+type GetSupportedSystemFontFamilyNamesResult struct {
+	FontFamilyNames []string `json:"fontFamilyNames"`
+}
