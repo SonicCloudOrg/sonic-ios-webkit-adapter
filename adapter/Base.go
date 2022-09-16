@@ -307,7 +307,7 @@ func (p *protocolAdapter) onEvaluate(message []byte) []byte {
 		if err != nil {
 			return nil
 		}
-		arr, err1 := json.Marshal(map[string]interface{}{
+		msg, err = sjson.Set(msg, "result.exceptionDetails", map[string]interface{}{
 			"text":     gjson.Get(msg, "result.result.description").Value(),
 			"url":      "",
 			"scriptId": p.lastScriptEval,
@@ -325,10 +325,6 @@ func (p *protocolAdapter) onEvaluate(message []byte) []byte {
 				},
 			},
 		})
-		if err1 != nil {
-			log.Panic(err)
-		}
-		msg, err = sjson.Set(msg, "result.exceptionDetails", string(arr))
 		if err != nil {
 			log.Panic(err)
 		}
@@ -450,15 +446,20 @@ func (p *protocolAdapter) domDebuggerOnGetEventListeners(message []byte) []byte 
 			"objectGroup": "event-listeners-panel",
 		}
 		p.adapter.CallTarget("DOM.getEventListenersForNode", getEventListenersForNodeParams, func(msg []byte) {
-			listeners := gjson.Get(string(msg), "listeners").Array()
+			var getEventListenersForNodeResult = &WebKitProtocol.GetEventListenersForNodeResult{}
+			err := json.Unmarshal(msg, getEventListenersForNodeResult)
+			if err != nil {
+				log.Panic(err)
+			}
+			listeners := getEventListenersForNodeResult.Listeners
 			var mappedListeners []map[string]interface{}
 			for _, listener := range listeners {
 				mappedListeners = append(mappedListeners, map[string]interface{}{
-					"type":       listener.Get("type").Value(),
-					"useCapture": listener.Get("useCapture").Value(),
+					"type":       listener.Type,
+					"useCapture": listener.UseCapture,
 					"passive":    false, // iOS doesn't support this property, http://compatibility.remotedebug.org/DOM/Safari%20iOS%209.3/types/EventListener,
-					"location":   listener.Get("location").Value(),
-					"hander":     listener.Get("hander").Value(),
+					"location":   listener.Location,
+					"hander":     listener.HandlerName,
 				})
 			}
 			mappedResult := map[string]interface{}{
@@ -652,9 +653,7 @@ func (p *protocolAdapter) onEmulateTouchFromMouseEvent(message []byte) []byte {
 		}
 		p.adapter.CallTarget("Runtime.evaluate", map[string]interface{}{
 			"expression": exp,
-		}, func(message []byte) {
-
-		})
+		}, nil)
 	})
 	return p.adapter.ReplyWithEmpty(newMsg)
 }

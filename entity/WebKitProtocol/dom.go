@@ -117,3 +117,73 @@ type Styleable struct {
 	NodeId   *NodeId   `json:"nodeId"`
 	PseudoId *PseudoId `json:"pseudoId,omitempty"`
 }
+
+// result
+type GetDocumentResult struct {
+	Root *Node `json:"root"`
+}
+
+type QuerySelectorResult struct {
+	NodeId *NodeId `json:"nodeId,omitempty"`
+}
+
+type QuerySelectorAllResult struct {
+	NodeIds []NodeId `json:"nodeIds"`
+}
+
+type SetNodeNameResult struct {
+	NodeId *NodeId `json:"nodeId"`
+}
+
+type GetSupportedEventNamesResult struct {
+	EventNames []string `json:"eventNames"`
+}
+
+type GetDataBindingsForNodeResult struct {
+	DataBindings []DataBinding `json:"dataBindings"`
+}
+
+type GetAssociatedDataForNodeResult struct {
+	AssociatedData *string `json:"associatedData,omitempty"`
+}
+
+type GetEventListenersForNodeResult struct {
+	Listeners []EventListener `json:"listeners"`
+}
+
+type GetAccessibilityPropertiesForNodeResult struct {
+	Properties *AccessibilityProperties `json:"properties"`
+}
+
+type GetOuterHTMLResult struct {
+	OuterHTML *string `json:"outerHTML"`
+}
+
+type PerformSearchResult struct {
+	SearchId    *string `json:"searchId"`
+	ResultCount *int    `json:"resultCount"`
+}
+
+type GetSearchResultsResult struct {
+	NodeIds []NodeId `json:"nodeIds"`
+}
+
+type RequestNodeResult struct {
+	NodeId *NodeId `json:"nodeId"`
+}
+
+type PushNodeByPathToFrontendResult struct {
+	NodeId *NodeId `json:"nodeId"`
+}
+
+type ResolveNodeResult struct {
+	Object *RemoteObject `json:"object"`
+}
+
+type GetAttributesResult struct {
+	Attributes []string `json:"attributes"`
+}
+
+type MoveToResult struct {
+	NodeId *NodeId `json:"nodeId"`
+}
