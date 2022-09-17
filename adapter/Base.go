@@ -763,7 +763,7 @@ func (p *protocolAdapter) mapRule(cssRule *WebKitProtocol.CSSRule) {
 
 	p.mapSelectorList(cssRule.SelectorList)
 
-	p.mapStyle(cssRule.Style, "")
+	p.mapStyle(cssRule.Style, cssRule.Origin)
 
 	cssRule.SourceLine = nil
 }
@@ -838,7 +838,7 @@ func (p *protocolAdapter) onSetStyleTexts(message []byte) []byte {
 						if err != nil {
 							log.Panic(err)
 						}
-						p.mapStyle(setStyleResultData.Style, "")
+						p.mapStyle(setStyleResultData.Style, nil)
 
 						allStyleText = append(allStyleText, setStyleResultData.Style)
 						// stop for
@@ -855,7 +855,7 @@ func (p *protocolAdapter) onSetStyleTexts(message []byte) []byte {
 	return nil
 }
 
-func (p *protocolAdapter) mapStyle(cssStyle *WebKitProtocol.CSSStyle, ruleOrigin string) {
+func (p *protocolAdapter) mapStyle(cssStyle *WebKitProtocol.CSSStyle, ruleOrigin *WebKitProtocol.StyleSheetOrigin) {
 
 	if cssStyle.CssText != nil {
 		disabled := p.extractDisabledStyles(*cssStyle.CssText, cssStyle.Range)
@@ -910,7 +910,7 @@ func (p *protocolAdapter) mapStyle(cssStyle *WebKitProtocol.CSSStyle, ruleOrigin
 	for _, cssProperty := range cssStyle.CssProperties {
 		p.mapCssProperty(&cssProperty)
 	}
-	if ruleOrigin != "user-agent" {
+	if *ruleOrigin != "user-agent" {
 		cssStyle.StyleSheetId = cssStyle.StyleId.StyleSheetId
 		arr, err1 := json.Marshal(cssStyle.Range)
 		if err1 != nil {
@@ -935,12 +935,14 @@ func (p *protocolAdapter) mapStyle(cssStyle *WebKitProtocol.CSSStyle, ruleOrigin
 func (p *protocolAdapter) mapCssProperty(cssProperty *WebKitProtocol.CSSProperty) {
 	resultTrue := true
 	resultFalse := false
-	if *cssProperty.Status == "disabled" {
-		cssProperty.Disabled = &resultTrue
-	} else if *cssProperty.Status == "active" {
-		cssProperty.Disabled = &resultFalse
+	if cssProperty.Status != nil {
+		if *cssProperty.Status == "disabled" {
+			cssProperty.Disabled = &resultTrue
+		} else if *cssProperty.Status == "active" {
+			cssProperty.Disabled = &resultFalse
+		}
+		cssProperty.Status = nil
 	}
-	cssProperty.Status = nil
 
 	priority := cssProperty.Priority
 	if priority != nil && *priority != "" {
