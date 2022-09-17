@@ -27,7 +27,7 @@ import (
 type screencastSession struct {
 	adapter         *Adapter
 	frameId         int
-	framesAcked     []bool
+	framesAcked     map[int]bool
 	frameInterval   time.Duration // default 250, 60 fps is 16ms
 	format          string
 	quality         int
@@ -64,11 +64,11 @@ func newScreencastSession(adapter *Adapter, optFuncs ...ScreencastOptFunc) *scre
 }
 
 func (s *screencastSession) start() {
-	s.framesAcked = []bool{}
+	s.framesAcked = make(map[int]bool)
 	s.frameId = 1
 	var err error
 	params := map[string]interface{}{
-		"expression": "(window.innerWidth > 0 ? window.innerWidth : screen.width) + \",\" + (window.innerHeight > 0 ? window.innerHeight : screen.height) + \",\" + window.devicePixelRatio",
+		"expression": `(window.innerWidth > 0 ? window.innerWidth : screen.width) + "," + (window.innerHeight > 0 ? window.innerHeight : screen.height) + "," + window.devicePixelRatio`,
 	}
 	s.adapter.CallTarget("Runtime.evaluate", params, func(message []byte) {
 		parts := strings.Split(gjson.Get(string(message), "result.value").String(), ",")
@@ -118,15 +118,16 @@ func (s *screencastSession) ackFrame(frameNumber int) {
 
 func (s *screencastSession) recordingLoop() {
 	currentFrame := s.frameId
-	if currentFrame > 1 && (currentFrame >= len(s.framesAcked) || !s.framesAcked[currentFrame-1]) {
+	frameAckFlag, ok := s.framesAcked[currentFrame-1]
+	if currentFrame > 1 && (ok || !frameAckFlag) {
 		return
 	}
 	s.frameId++
 	params := map[string]interface{}{
-		"expression": "window.document.body.offsetTop + \",\" + window.pageXOffset + \",\" + window.pageYOffset",
+		"expression": `window.document.body.offsetTop + "," + window.pageXOffset + "," + window.pageYOffset`,
 	}
 	s.adapter.CallTarget("Runtime.evaluate", params, func(message []byte) {
-		if gjson.Get(string(message), "wasThrown").Exists() {
+		if !gjson.Get(string(message), "wasThrown").Exists() || gjson.Get(string(message), "wasThrown").Bool() {
 			return
 		}
 		parts := strings.Split(gjson.Get(string(message), "result.value").String(), ",")
@@ -149,35 +150,35 @@ func (s *screencastSession) recordingLoop() {
 		s.offsetTop = offsetTop
 		s.scrollOffsetY = scrollOffsetY
 		s.scrollOffsetX = scrollOffsetX
-		go func() {
-			snapshotRectParams := map[string]interface{}{
-				"x":                0,
-				"y":                0,
-				"width":            s.deviceWidth,
-				"height":           s.deviceHeight,
-				"coordinateSystem": "Viewport",
+
+		snapshotRectParams := map[string]interface{}{
+			"x":                0,
+			"y":                0,
+			"width":            s.deviceWidth,
+			"height":           s.deviceHeight,
+			"coordinateSystem": "Viewport",
+		}
+		s.adapter.CallTarget("Page.snapshotRect", snapshotRectParams, func(msg []byte) {
+			dataURL := gjson.Get(string(msg), "dataURL").String()
+			index := strings.Index(dataURL, "base64")
+
+			frame := map[string]interface{}{
+				"data": dataURL[index+7:],
+				"metadata": map[string]interface{}{
+					"pageScaleFactor": s.pageScaleFactor,
+					"offsetTop":       s.offsetTop,
+					"deviceWidth":     s.deviceWidth,
+					"deviceHeight":    s.deviceHeight,
+					"scrollOffsetX":   s.scrollOffsetX,
+					"scrollOffsetY":   s.scrollOffsetY,
+					"timestamp":       time.Now().UnixNano(),
+				},
+				"sessionId": currentFrame,
 			}
-			s.adapter.CallTarget("Page.snapshotRect", snapshotRectParams, func(msg []byte) {
-				dataURL := gjson.Get(string(msg), "dataURL").String()
-				index := strings.Index(dataURL, "base64")
 
-				frame := map[string]interface{}{
-					"data": dataURL[index+7:],
-					"metadata": map[string]interface{}{
-						"pageScaleFactor": s.pageScaleFactor,
-						"offsetTop":       s.offsetTop,
-						"deviceWidth":     s.deviceWidth,
-						"deviceHeight":    s.deviceHeight,
-						"scrollOffsetX":   s.scrollOffsetX,
-						"scrollOffsetY":   s.scrollOffsetY,
-						"timestamp":       time.Now().UnixNano(),
-					},
-					"sessionId": currentFrame,
-				}
+			s.adapter.FireEventToTools("Page.screencastFrame", frame)
+		})
 
-				s.adapter.FireEventToTools("Page.screencastFrame", frame)
-			})
-		}()
 	})
 }
 
