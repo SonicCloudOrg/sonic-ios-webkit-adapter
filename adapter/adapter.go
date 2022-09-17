@@ -96,18 +96,19 @@ func (t *messageFiltersSyncMap) get(key string) MessageAdapters {
 }
 
 type Adapter struct {
-	targetID          string
-	messageFilters    messageFiltersSyncMap
-	messageBuffer     [][]byte
-	isTargetBased     bool
-	applicationID     *string
-	pageID            *int
-	waitingForID      int
-	toolRequestMap    toolRequestSyncMap
-	adapterRequestMap adapterRequestSyncMap
-	wsToolServer      *websocket.Conn
-	wsWebkitServer    *websocket.Conn
-	isToolConnect     bool
+	targetID             string
+	toolMessageFilters   messageFiltersSyncMap
+	webkitMessageFilters messageFiltersSyncMap
+	messageBuffer        [][]byte
+	isTargetBased        bool
+	applicationID        *string
+	pageID               *int
+	waitingForID         int
+	toolRequestMap       toolRequestSyncMap
+	adapterRequestMap    adapterRequestSyncMap
+	wsToolServer         *websocket.Conn
+	wsWebkitServer       *websocket.Conn
+	isToolConnect        bool
 	// 给iOS
 	sendWebkit func([]byte)
 	// 给devtool
@@ -132,8 +133,12 @@ func NewAdapter(wsToolServer *websocket.Conn, version string) *Adapter {
 	return adapter
 }
 
-func (a *Adapter) addMessageFilter(method string, filter MessageAdapters) {
-	a.messageFilters.put(method, filter)
+func (a *Adapter) AddToolMessageFilter(method string, filter MessageAdapters) {
+	a.toolMessageFilters.put(method, filter)
+}
+
+func (a *Adapter) AddWebkitMessageFilter(method string, filter MessageAdapters) {
+	a.webkitMessageFilters.put(method, filter)
 }
 
 func (a *Adapter) CallTarget(method string, params interface{}, callFunc func(message []byte)) {
@@ -296,14 +301,14 @@ func (a *Adapter) defaultReceiveWebkit(message []byte) {
 		id := gjson.Get(msg, "id").Int()
 		if a.toolRequestMap.get(id) != "" {
 			var eventName = a.toolRequestMap.get(id)
-			if strings.Contains(msg, "err") && a.messageFilters.get("error") != nil {
+			if strings.Contains(msg, "err") && a.webkitMessageFilters.get("error") != nil {
 				eventName = "error"
 			}
 
 			a.toolRequestMap.delete(id)
 
-			if a.messageFilters.get(eventName) != nil {
-				rawMessage := a.messageFilters.get(eventName)([]byte(msg))
+			if a.webkitMessageFilters.get(eventName) != nil {
+				rawMessage := a.webkitMessageFilters.get(eventName)([]byte(msg))
 				if rawMessage != nil {
 					a.sendDevTool(rawMessage)
 				}
@@ -330,8 +335,8 @@ func (a *Adapter) defaultReceiveWebkit(message []byte) {
 		}
 	} else {
 		var eventName = gjson.Get(msg, "method").String()
-		if a.messageFilters.get(eventName) != nil {
-			rawMessage := a.messageFilters.get(eventName)([]byte(msg))
+		if a.webkitMessageFilters.get(eventName) != nil {
+			rawMessage := a.webkitMessageFilters.get(eventName)([]byte(msg))
 			if rawMessage != nil {
 				a.sendDevTool(rawMessage)
 			}
@@ -361,8 +366,8 @@ func (a *Adapter) defaultReceiveDevTool(message []byte) {
 	id := gjson.Get(msg, "id").Int()
 	a.toolRequestMap.put(id, eventName)
 
-	if a.messageFilters.get(eventName) != nil {
-		message = a.messageFilters.get(eventName)(message)
+	if a.toolMessageFilters.get(eventName) != nil {
+		message = a.toolMessageFilters.get(eventName)(message)
 	}
 	if message != nil {
 		protocolMessage := &entity.TargetProtocol{}

@@ -32,7 +32,7 @@ func initIOS8(protocol *protocolAdapter) {
 		adapter: protocol.adapter,
 	}
 	protocol.init()
-	protocol.adapter.addMessageFilter("error", result.targetError)
+	protocol.adapter.AddWebkitMessageFilter("error", result.targetError)
 	protocol.mapSelectorList = result.mapSelectorList
 }
 
