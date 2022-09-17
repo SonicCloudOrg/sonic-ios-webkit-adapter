@@ -20,6 +20,7 @@ import (
 	"github.com/SonicCloudOrg/sonic-ios-webkit-adapter/entity/WebKitProtocol"
 	"github.com/tidwall/gjson"
 	"github.com/tidwall/sjson"
+	"github.com/yezihack/e"
 	"log"
 )
 
@@ -43,7 +44,7 @@ func (i *iOS8) targetError(message []byte) []byte {
 	}
 	msg, err := sjson.Set("", "", params)
 	if err != nil {
-		log.Panic(err)
+		log.Println(e.Convert(err).ToStr())
 	}
 	return []byte(msg)
 }

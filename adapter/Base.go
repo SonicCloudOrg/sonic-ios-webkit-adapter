@@ -22,6 +22,7 @@ import (
 	"github.com/SonicCloudOrg/sonic-ios-webkit-adapter/entity/WebKitProtocol"
 	"github.com/tidwall/gjson"
 	"github.com/tidwall/sjson"
+	"github.com/yezihack/e"
 	"log"
 	"regexp"
 	"strconv"
@@ -37,7 +38,7 @@ func initProtocolAdapter(adapter *Adapter, version string) *protocolAdapter {
 	if len(parts) > 0 {
 		major, err := strconv.Atoi(parts[0])
 		if err != nil {
-			log.Panic(err)
+			log.Println(e.Convert(err).ToStr())
 		}
 		if major <= 8 {
 			initIOS8(protocol)
@@ -45,7 +46,7 @@ func initProtocolAdapter(adapter *Adapter, version string) *protocolAdapter {
 		}
 		minor, err := strconv.Atoi(parts[1])
 		if err != nil {
-			log.Panic(err)
+			log.Println(e.Convert(err).ToStr())
 		}
 		if major > 12 || major >= 12 && minor >= 2 {
 			initIOS12(protocol)
@@ -272,7 +273,7 @@ func (p *protocolAdapter) onExecutionContextCreated(message []byte) []byte {
 		if !gjson.Get(msg, "params.context.origin").Exists() {
 			msg, err = sjson.Set(msg, "params.context.origin", gjson.Get(msg, "params.context.name").String())
 			if err != nil {
-				log.Panic(err)
+				log.Println(e.Convert(err).ToStr())
 			}
 			if gjson.Get(msg, "params.context.isPageContext").Exists() {
 				p.lastPageExecutionContextId = gjson.Get(msg, "params.context.id").Int()
@@ -283,12 +284,12 @@ func (p *protocolAdapter) onExecutionContextCreated(message []byte) []byte {
 					"isDefault": true,
 				})
 				if err != nil {
-					log.Panic(err)
+					log.Println(e.Convert(err).ToStr())
 				}
 				if gjson.Get(msg, "params.context.frameId").Exists() {
 					msg, err = sjson.Delete(msg, "params.context.frameId")
 					if err != nil {
-						log.Panic(err)
+						log.Println(e.Convert(err).ToStr())
 					}
 				}
 			}
@@ -326,16 +327,16 @@ func (p *protocolAdapter) onEvaluate(message []byte) []byte {
 			},
 		})
 		if err != nil {
-			log.Panic(err)
+			log.Println(e.Convert(err).ToStr())
 		}
 	} else if result.Exists() && result.Get("result").Exists() && result.Get("result.preview").Exists() {
 		msg, err = sjson.Set(msg, "result.result.preview.description", gjson.Get(msg, "result.result.description").Value())
 		if err != nil {
-			log.Panic(err)
+			log.Println(e.Convert(err).ToStr())
 		}
 		msg, err = sjson.Set(msg, "result.result.preview.type", "object")
 		if err != nil {
-			log.Panic(err)
+			log.Println(e.Convert(err).ToStr())
 		}
 	}
 	return []byte(msg)
@@ -366,14 +367,14 @@ func (p *protocolAdapter) onRuntimeGetProperties(message []byte) []byte {
 		if isOwn.Exists() || nativeGetter.Exists() {
 			msg, err = sjson.Set(msg, isOwn.Path(string(message)), true)
 			if err != nil {
-				log.Panic(err)
+				log.Println(e.Convert(err).ToStr())
 			}
 			newPropertyDescriptors = append(newPropertyDescriptors, gjson.Get(msg, node.Path(msg)).Value())
 		}
 	}
 	msg, err = sjson.Set(msg, "result.result", newPropertyDescriptors)
 	if err != nil {
-		log.Panic(err)
+		log.Println(e.Convert(err).ToStr())
 	}
 	return []byte(msg)
 }
@@ -393,17 +394,17 @@ func (p *protocolAdapter) onSetInspectMode(message []byte) []byte {
 	var err error
 	msg, err = sjson.Set(msg, "method", "DOM.setInspectModeEnabled")
 	if err != nil {
-		log.Panic(err)
+		log.Println(e.Convert(err).ToStr())
 	}
 	msg, err = sjson.Set(msg, "params.enabled",
 		gjson.Get(msg, "params.mode").String() == "searchForNode")
 	if err != nil {
-		log.Panic(err)
+		log.Println(e.Convert(err).ToStr())
 	}
 	if gjson.Get(msg, "params.mode").Exists() {
 		msg, err = sjson.Delete(msg, "params.mode")
 		if err != nil {
-			log.Panic(err)
+			log.Println(e.Convert(err).ToStr())
 		}
 	}
 	return []byte(msg)
@@ -414,22 +415,22 @@ func (p *protocolAdapter) onInspect(message []byte) []byte {
 	var err error
 	msg, err = sjson.Set(msg, "method", "DOM.inspectNodeRequested")
 	if err != nil {
-		log.Panic(err)
+		log.Println(e.Convert(err).ToStr())
 	}
 	msg, err = sjson.Set(msg, "params.backendNodeId", gjson.Get(msg, "params.object.objectId").Value())
 	if err != nil {
-		log.Panic(err)
+		log.Println(e.Convert(err).ToStr())
 	}
 	if gjson.Get(msg, "params.hints").Exists() {
 		msg, err = sjson.Delete(msg, "params.object")
 		if err != nil {
-			log.Panic(err)
+			log.Println(e.Convert(err).ToStr())
 		}
 	}
 	if gjson.Get(msg, "params.hints").Exists() {
 		msg, err = sjson.Delete(msg, "params.hints")
 		if err != nil {
-			log.Panic(err)
+			log.Println(e.Convert(err).ToStr())
 		}
 	}
 
@@ -449,7 +450,7 @@ func (p *protocolAdapter) domDebuggerOnGetEventListeners(message []byte) []byte 
 			var getEventListenersForNodeResult = &WebKitProtocol.GetEventListenersForNodeResult{}
 			err := json.Unmarshal(msg, getEventListenersForNodeResult)
 			if err != nil {
-				log.Panic(err)
+				log.Println(e.Convert(err).ToStr())
 			}
 			listeners := getEventListenersForNodeResult.Listeners
 			var mappedListeners []map[string]interface{}
@@ -622,23 +623,25 @@ func (p *protocolAdapter) onEmulateTouchFromMouseEvent(message []byte) []byte {
 	case "mousePressed":
 		newMsg, err = sjson.Set(newMsg, "params.type", "mousedown")
 		if err != nil {
-			log.Panic(err)
+			log.Println(e.Convert(err).ToStr())
 		}
 		break
 	case "mouseReleased":
 		newMsg, err = sjson.Set(newMsg, "params.type", "click")
 		if err != nil {
-			log.Panic(err)
+			log.Println(e.Convert(err).ToStr())
 		}
 		break
 	case "mouseMoved":
 		newMsg, err = sjson.Set(newMsg, "params.type", "mousemove")
 		if err != nil {
-			log.Panic(err)
+			log.Println(e.Convert(err).ToStr())
 		}
 		break
 	default:
-		log.Panic(fmt.Sprintf("Unknown emulate mouse event name %s", gjson.Get(oldMsg, "params.type").String()))
+		log.Println(fmt.Sprintf("Unknown emulate mouse event name %s",
+			gjson.Get(oldMsg, "params.type")),
+		)
 	}
 	var exp = fmt.Sprintf("(%s)(%s)", funcStr, newMsg)
 
@@ -648,7 +651,7 @@ func (p *protocolAdapter) onEmulateTouchFromMouseEvent(message []byte) []byte {
 		if gjson.Get(newMsg, "params.type").String() == "click" {
 			newMsg, err = sjson.Set(newMsg, "params.type", "mouseup")
 			if err != nil {
-				log.Panic(err)
+				log.Println(e.Convert(err).ToStr())
 			}
 		}
 		p.adapter.CallTarget("Runtime.evaluate", map[string]interface{}{
@@ -714,15 +717,15 @@ func (p *protocolAdapter) enumerateStyleSheets(message []byte) []byte {
 			for _, header := range headers.Array() {
 				newMsg, err = sjson.Set(newMsg, header.Get("isInline").Path(oldMsg), false)
 				if err != nil {
-					log.Panic(err)
+					log.Println(e.Convert(err).ToStr())
 				}
 				newMsg, err = sjson.Set(newMsg, header.Get("startLine").Path(oldMsg), 0)
 				if err != nil {
-					log.Panic(err)
+					log.Println(e.Convert(err).ToStr())
 				}
 				newMsg, err = sjson.Set(newMsg, header.Get("startColumn").Path(oldMsg), 0)
 				if err != nil {
-					log.Panic(err)
+					log.Println(e.Convert(err).ToStr())
 				}
 				p.adapter.FireEventToTools("CSS.styleSheetAdded", map[string]interface{}{
 					"header": gjson.Get(newMsg, header.Path(oldMsg)).Value(),
@@ -746,7 +749,7 @@ func (p *protocolAdapter) onAddRule(message []byte) []byte {
 		var addRuleResult = &WebKitProtocol.AddRuleResult{}
 		err := json.Unmarshal(addRuleResultMessage, addRuleResult)
 		if err != nil {
-			log.Panic(err)
+			log.Println(e.Convert(err).ToStr())
 		}
 		p.mapRule(addRuleResult.Rule)
 
@@ -775,7 +778,7 @@ func (p *protocolAdapter) onGetMatchedStylesForNodeResult(message []byte) []byte
 
 		err := json.Unmarshal([]byte(gjson.Get(string(message), "result").String()), getMatchedStylesForNodeResult)
 		if err != nil {
-			log.Panic(err)
+			log.Println(e.Convert(err).ToStr())
 		}
 
 		for _, matchedCSSRule := range getMatchedStylesForNodeResult.MatchedCSSRules {
@@ -794,7 +797,7 @@ func (p *protocolAdapter) onGetMatchedStylesForNodeResult(message []byte) []byte
 
 		newMessage, err1 := sjson.Set(string(message), "result", getMatchedStylesForNodeResult)
 		if err1 != nil {
-			log.Panic(err1)
+			log.Println(e.Convert(err1).ToStr())
 		}
 		message = []byte(newMessage)
 	}
@@ -821,7 +824,7 @@ func (p *protocolAdapter) onSetStyleTexts(message []byte) []byte {
 			styleSheet := gjson.Get(result, "styleSheet")
 			styleSheetRules := gjson.Get(result, "styleSheet.rules")
 			if !styleSheet.Exists() || !styleSheetRules.Exists() {
-				log.Panic("iOS returned a value we were not expecting for getStyleSheet")
+				log.Println("iOS returned a value we were not expecting for getStyleSheet")
 			}
 			for index, rule := range styleSheetRules.Array() {
 				if compareRanges(rule.Get("style.range"), edit.Get("range")) {
@@ -836,7 +839,7 @@ func (p *protocolAdapter) onSetStyleTexts(message []byte) []byte {
 						var setStyleResultData = &WebKitProtocol.SetStyleTextResult{}
 						err := json.Unmarshal(setStyleResult, setStyleResultData)
 						if err != nil {
-							log.Panic(err)
+							log.Println(e.Convert(err).ToStr())
 						}
 						p.mapStyle(setStyleResultData.Style, nil)
 
@@ -914,7 +917,7 @@ func (p *protocolAdapter) mapStyle(cssStyle *WebKitProtocol.CSSStyle, ruleOrigin
 		cssStyle.StyleSheetId = cssStyle.StyleId.StyleSheetId
 		arr, err1 := json.Marshal(cssStyle.Range)
 		if err1 != nil {
-			log.Panic(err1)
+			log.Println(e.Convert(err1).ToStr())
 		}
 		var styleKey = fmt.Sprintf("%s_%s", *cssStyle.StyleSheetId, string(arr))
 		if p.styleMap == nil {
@@ -1030,14 +1033,14 @@ func ReplaceMethodNameAndOutputBinary(message []byte, method string) []byte {
 	var msg = make(map[string]interface{})
 	err := json.Unmarshal(message, &msg)
 	if err != nil {
-		log.Panic(err)
+		log.Println(e.Convert(err).ToStr())
 	}
 	// todo Regular?
 	msg["method"] = method
 
 	arr, err1 := json.Marshal(msg)
 	if err1 != nil {
-		log.Panic(err1)
+		log.Println(e.Convert(err1).ToStr())
 	}
 	return arr
 }

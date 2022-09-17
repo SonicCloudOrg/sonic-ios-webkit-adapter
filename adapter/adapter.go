@@ -21,6 +21,7 @@ import (
 	"github.com/SonicCloudOrg/sonic-ios-webkit-adapter/entity"
 	"github.com/gorilla/websocket"
 	"github.com/tidwall/gjson"
+	"github.com/yezihack/e"
 	"log"
 	"strings"
 	"sync"
@@ -194,7 +195,7 @@ func (a *Adapter) FireEventToTools(method string, params interface{}) {
 	}
 	arr, err := json.Marshal(response)
 	if err != nil {
-		log.Panic(err)
+		log.Println(e.Convert(err).ToStr())
 	}
 	a.sendDevTool(arr)
 }
@@ -206,7 +207,7 @@ func (a *Adapter) FireResultToTools(id int, params interface{}) {
 	}
 	arr, err := json.Marshal(response)
 	if err != nil {
-		log.Panic(err)
+		log.Println(e.Convert(err).ToStr())
 	}
 	a.sendDevTool(arr)
 }
@@ -233,7 +234,7 @@ func (a *Adapter) Connect(wsPath string, toolWs *websocket.Conn) {
 	a.wsToolServer = toolWs
 	conn, _, err := websocket.DefaultDialer.Dial(wsPath, nil)
 	if err != nil {
-		log.Panic(err)
+		log.Println(e.Convert(err).ToStr())
 	}
 	a.wsWebkitServer = conn
 	a.SetIsConnect(true)
@@ -281,7 +282,7 @@ func (a *Adapter) defaultSendWebkit(message []byte) {
 	}
 	err := a.wsWebkitServer.WriteMessage(websocket.TextMessage, message)
 	if err != nil {
-		log.Panic(err)
+		log.Println(e.Convert(err).ToStr())
 	}
 }
 
@@ -352,7 +353,7 @@ func (a *Adapter) defaultSendDevTool(message []byte) {
 	}
 	err := a.wsToolServer.WriteMessage(websocket.TextMessage, message)
 	if err != nil {
-		log.Println(err)
+		log.Println(e.Convert(err).ToStr())
 	}
 }
 
@@ -373,7 +374,7 @@ func (a *Adapter) defaultReceiveDevTool(message []byte) {
 		protocolMessage := &entity.TargetProtocol{}
 		err := json.Unmarshal(message, protocolMessage)
 		if err != nil {
-			log.Panic(err)
+			log.Println(e.Convert(err).ToStr())
 		}
 		a.sendToTarget(protocolMessage)
 	}

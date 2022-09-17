@@ -18,6 +18,7 @@ package adapters
 
 import (
 	"github.com/tidwall/gjson"
+	"github.com/yezihack/e"
 	"log"
 	"strconv"
 	"strings"
@@ -77,15 +78,15 @@ func (s *screencastSession) start() {
 		var pageScaleFactor int
 		deviceWidth, err = strconv.Atoi(parts[0])
 		if err != nil {
-			log.Println(err)
+			log.Println(e.Convert(err).ToStr())
 		}
 		deviceHeight, err = strconv.Atoi(parts[1])
 		if err != nil {
-			log.Println(err)
+			log.Println(e.Convert(err).ToStr())
 		}
 		pageScaleFactor, err = strconv.Atoi(parts[2])
 		if err != nil {
-			log.Println(err)
+			log.Println(e.Convert(err).ToStr())
 		}
 		s.deviceWidth = deviceWidth
 		s.deviceHeight = deviceHeight
@@ -137,15 +138,15 @@ func (s *screencastSession) recordingLoop() {
 		var err error
 		offsetTop, err = strconv.Atoi(parts[0])
 		if err != nil {
-			log.Println(err)
+			log.Println(e.Convert(err).ToStr())
 		}
 		scrollOffsetX, err = strconv.Atoi(parts[1])
 		if err != nil {
-			log.Println(err)
+			log.Println(e.Convert(err).ToStr())
 		}
 		scrollOffsetY, err = strconv.Atoi(parts[2])
 		if err != nil {
-			log.Println(err)
+			log.Println(e.Convert(err).ToStr())
 		}
 		s.offsetTop = offsetTop
 		s.scrollOffsetY = scrollOffsetY
