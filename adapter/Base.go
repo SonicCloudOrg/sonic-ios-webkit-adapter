@@ -773,7 +773,7 @@ func (p *protocolAdapter) onGetMatchedStylesForNodeResult(message []byte) []byte
 	if gjson.Get(string(message), "result").Exists() {
 		var getMatchedStylesForNodeResult = &WebKitProtocol.GetMatchedStylesForNodeResult{}
 
-		err := json.Unmarshal(message, getMatchedStylesForNodeResult)
+		err := json.Unmarshal([]byte(gjson.Get(string(message), "result").String()), getMatchedStylesForNodeResult)
 		if err != nil {
 			log.Panic(err)
 		}
