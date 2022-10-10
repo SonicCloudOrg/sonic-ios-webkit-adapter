@@ -4,7 +4,7 @@
 <p align="center">🎉Adapter of debug webkit protocol on iOS for Chrome DevTools</p>
 <p align="center">
   <span>English |</span>
-  <a href="https://github.com/SonicCloudOrg/sonic-ios-webkit-adapter/blob/master/README_CN.md">  
+  <a href="https://github.com/SonicCloudOrg/sonic-ios-webkit-adapter/blob/main/README_CN.md">  
      简体中文
   </a>
 </p>
