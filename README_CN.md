@@ -3,7 +3,7 @@
 </p>
 <p align="center">🎉用于谷歌浏览器调试的webkit协议接收器</p>
 <p align="center">
-  <a href="https://github.com/SonicCloudOrg/sonic-ios-webkit-adapter/blob/master/README.md">  
+  <a href="https://github.com/SonicCloudOrg/sonic-ios-webkit-adapter/blob/main/README.md">  
     English
   </a>
   <span>| 简体中文</span>
