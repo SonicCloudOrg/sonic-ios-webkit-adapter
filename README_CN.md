@@ -29,6 +29,11 @@
 >
 > 如果你想支持，可以给我一个star。⭐
 
+## 代码引用
+```
+go get -u github.com/SonicCloudOrg/sonic-ios-webkit-adapter
+```
+
 ## LICENSE
 
 [License](LICENSE)
