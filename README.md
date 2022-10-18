@@ -29,6 +29,11 @@
 >
 >If you want to support, you can give me a star. ⭐
 
+## Use in code
+```
+go get -u github.com/SonicCloudOrg/sonic-ios-webkit-adapter
+```
+
 ## LICENSE
 
 [License](LICENSE)
