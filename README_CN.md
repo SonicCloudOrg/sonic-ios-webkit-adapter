@@ -37,3 +37,5 @@ go get -u github.com/SonicCloudOrg/sonic-ios-webkit-adapter
 ## LICENSE
 
 [License](LICENSE)
+
+ - 代码参考了 [remotedebug-ios-webkit-adapter](https://github.com/RemoteDebug/remotedebug-ios-webkit-adapter) license: MIT
