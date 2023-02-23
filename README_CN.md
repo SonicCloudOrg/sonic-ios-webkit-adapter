@@ -29,6 +29,10 @@
 >
 > 如果你想支持，可以给我一个star。⭐
 
+## 文档
+
+看 [这里](https://sonic-cloud.cn/siwa/re-siwa.html)
+
 ## 代码引用
 ```
 go get -u github.com/SonicCloudOrg/sonic-ios-webkit-adapter
