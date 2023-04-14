@@ -17,18 +17,6 @@
   </a>
 </p>
 
-### 官方网站
-[Sonic Official Website](https://sonic-cloud.gitee.io/#/SIB)
-## 背景
-
-#### 什么是 Sonic ?
-
-> Sonic是一个集移动设备远程控制调试与自动化测试的平台，用心为全球开发者以及测试工程师打造更好的使用体验。
->
->  如果你想参与其中，欢迎加入！💪
->
-> 如果你想支持，可以给我一个star。⭐
-
 ## 文档
 
 看 [这里](https://sonic-cloud.cn/siwa/re-siwa.html)
