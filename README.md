@@ -17,18 +17,6 @@
   </a>
 </p>
 
-### Official Website
-[Sonic Official Website](https://sonic-cloud.gitee.io)
-## Background
-
-#### What is sonic ?
-
-> Sonic is a platform that integrates remote control debugging and automated testing of mobile devices, and strives to create a better use experience for global developers and test engineers.
->
->If you want to participate, welcome to join us! 💪
->
->If you want to support, you can give me a star. ⭐
-
 ## Document
 
 See [Here](https://sonic-cloud.cn/siwa/re-siwa.html)
